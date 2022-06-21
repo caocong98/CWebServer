@@ -1,7 +1,7 @@
 #include "http_conn.h"
 
 #include <mysql/mysql.h>
-#include <fstream>
+
 
 //定义http响应的一些状态信息
 const char *ok_200_title = "OK";
@@ -16,6 +16,22 @@ const char *error_500_form = "There was an unusual problem serving the request f
 
 locker m_lock;
 map<string, string> users;
+
+
+void http_conn::add_file(const string& filename, const string& contents) {
+    string temp_route = file_root + filename;
+    // printf("content:%s\n", contents.c_str());
+    // printf("length%d\n", m_content_length);
+    // printf("content length:%d\n", contents.size());
+    printf("file_route:%s\n", temp_route.c_str());
+    std::ofstream out(temp_route.c_str(), std::ios::out);
+    // outfile.open(temp_route.c_str(), std::ios_base::out);
+    // outfile.write(contents.c_str(), contents.size());
+    // outfile.close();
+    if (!out) printf("open fail\n");
+    out.write(contents.c_str(), contents.size());
+    out.close();
+}
 
 void http_conn::initmysql_result(connection_pool *connPool)
 {
@@ -157,6 +173,9 @@ void http_conn::init()
     timer_flag = 0;
     improv = 0;
     file_tag = 1;
+    file_content = "";
+    m_file_name = "";
+    m_theme = "";
 
     memset(m_read_buf, '\0', READ_BUFFER_SIZE);
     memset(m_write_buf, '\0', WRITE_BUFFER_SIZE);
@@ -221,9 +240,10 @@ bool http_conn::read_once()
     //LT读取数据
     if (0 == m_TRIGMode)
     {
+
         bytes_read = recv(m_sockfd, m_read_buf + m_read_idx, READ_BUFFER_SIZE - m_read_idx, 0);
         m_read_idx += bytes_read;
-
+        file_content += m_read_buf;
         if (bytes_read <= 0)
         {
             return false;
@@ -367,14 +387,48 @@ http_conn::HTTP_CODE http_conn::parse_content(char *text)
 }
 
 //处理formdata 
-http_conn::HTTP_CODE http_conn::parse_formdata(char *text)
+http_conn::HTTP_CODE http_conn::parse_formdata()
 {
     //只将数据在内存中走一遍还未实现将文件存入硬盘
     // 根据formdata请求报文格式，最后四位为--\r\n判断是否接收完整个请求
-    if (!(m_read_buf[m_read_idx - 3] == '-' && m_read_buf[m_read_idx - 4] == '-')) {
+    // if (file_content.substr(file_content.size() - 4, 4) != "--\r\n" || file_content.size() < m_content_length) {
+    
+    // if (file_content.substr(file_content.size() - 4, 4) != "--\r\n") {
+    //     printf("content_size:%d\n", file_content.size());
+    //     printf("readbuf:%s\n", m_read_buf);
+    // // if (file_content.find("--\r\n") == file_content.npos) {
+    //     init1();
+    //     return NO_REQUEST;
+    // }
+    int n = 30;
+    while (file_content.substr(file_content.size() - 4, 4) != "--\r\n") {
+        
         init1();
-        return NO_REQUEST;
+        int bytes_read = recv(m_sockfd, m_read_buf + m_read_idx, READ_BUFFER_SIZE - m_read_idx, 0);
+        file_content += m_read_buf;
+        printf("content_size:%d\n", file_content.size());
+        if (bytes_read == -1)
+        {
+            if (file_content.substr(file_content.size() - 4, 4) == "--\r\n") break;
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                modfd(m_epollfd, m_sockfd, EPOLLIN, m_TRIGMode);
+            }
+            --n;
+            printf("n:%d\n", n);
+            if (n) continue;
+            printf("Bad1\n");
+            return BAD_REQUEST;
+        }
+        else if (bytes_read == 0)
+        {
+            printf("Bad2\n");
+            return BAD_REQUEST;
+        }
+        m_read_idx += bytes_read;
     }
+
+    // printf("Endbuf:%s\n", file_content.substr(file_content.size()-50).c_str());
+    printf("Endbuf:%s\n", file_content.c_str());
     return GET_REQUEST;
 }
 
@@ -386,9 +440,11 @@ http_conn::HTTP_CODE http_conn::process_read()
 
     while (m_check_state == CHECK_STATE_FORMDATA || (m_check_state == CHECK_STATE_CONTENT && line_status == LINE_OK) || ((line_status = parse_line()) == LINE_OK))
     {
-        text = get_line();
-        m_start_line = m_checked_idx;
-        LOG_INFO("%s", text);
+        if (m_check_state != CHECK_STATE_FORMDATA) {
+            text = get_line();
+            m_start_line = m_checked_idx;
+            LOG_INFO("%s", text);
+        }
         switch (m_check_state)
         {
         case CHECK_STATE_REQUESTLINE:
@@ -419,7 +475,7 @@ http_conn::HTTP_CODE http_conn::process_read()
         }
         case CHECK_STATE_FORMDATA:
         {
-            ret = parse_formdata(text);
+            ret = parse_formdata();
             if (ret == GET_REQUEST)
                 return do_request();
             return NO_REQUEST;
@@ -501,15 +557,37 @@ http_conn::HTTP_CODE http_conn::do_request()
     //处理文件上传结果
     if (cgi == 1)
     {
-        char *m_url_real = (char *)malloc(sizeof(char) * 200);
-        if (file_tag) {
+        if (m_method == POST) {
+            // 获取文件名称
+            int id1 = file_content.find("filename");
+            id1 += 10; //文件名第一个字符
+            while (file_content[id1] != '"') {
+                m_file_name.push_back(file_content[id1++]);
+            }
+            // 获取文件主题
+            int id2 = file_content.find("theme");
+            id2 += 10; //文件主题第一个字符
+            while (file_content[id2] != '\r') {
+                m_theme.push_back(file_content[id2++]);
+            }
+            if (m_theme.size() == 0) printf("Empty theme.\n");
+            else printf("The theme is : %s\n", m_theme.c_str());
+            // 截取文件主体内容
+            file_content = file_content.substr(id1, id2 - id1);
+            add_file(m_file_name, file_content);
             strcpy(m_url, "/loadsuccess.html");
         }
         else {
             strcpy(m_url, "/loadfail.html");
         }
+        // add_file("test.txt", file_content);
+        // if (file_tag) {
+        //     strcpy(m_url, "/loadsuccess.html");
+        // }
+        // else {
+        //     strcpy(m_url, "/loadfail.html");
+        // }
 
-        free(m_url_real);
     }
     strncpy(m_real_file + len, m_url, FILENAME_LEN - len - 1);
 

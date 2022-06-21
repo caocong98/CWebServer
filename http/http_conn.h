@@ -26,6 +26,8 @@
 #include "../timer/lst_timer.h"
 #include "../log/log.h"
 
+#include <fstream>
+
 class http_conn
 {
 public:
@@ -81,6 +83,8 @@ public:
     void process();
     bool read_once();
     bool write();
+    //将上传文件写入硬盘
+    void add_file(const string &filename, const string &contents);
     sockaddr_in *get_address()
     {
         return &m_address;
@@ -98,7 +102,7 @@ private:
     HTTP_CODE parse_request_line(char *text);
     HTTP_CODE parse_headers(char *text);
     HTTP_CODE parse_content(char *text);
-    HTTP_CODE parse_formdata(char *text);  //接收文件处理
+    HTTP_CODE parse_formdata();  //接收文件处理
     HTTP_CODE do_request();
     //m_start_line是已经解析的字符
     //get_line用于将指针向后偏移，指向未处理的字符
@@ -164,8 +168,10 @@ private:
     char *doc_root;  //root资源绝对路径
     char *file_root; //存放上传文件绝对路径
 
-    int m_write_fd;  //写文件fd
-    char *m_write_file; //上传文件名称
+    std::ofstream outfile;  //写文件流
+    string m_file_name; //上传文件名称
+    string file_content;
+    string m_theme;     //对应网站主题
 
     int file_tag;  //文件上传是否成功标记
 

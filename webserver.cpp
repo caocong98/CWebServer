@@ -9,7 +9,7 @@ WebServer::WebServer()
     char server_path[200];
     getcwd(server_path, 200);
     char root[6] = "/root";
-    char file_root[] = "/images/picture";
+    char file_root[] = "/root/images/picture/";
     m_root = (char *)malloc(strlen(server_path) + strlen(root) + 1);
     m_file_root = (char *)malloc(strlen(server_path) + strlen(file_root) + 1);
     strcpy(m_root, server_path);
@@ -385,6 +385,7 @@ void WebServer::eventLoop()
 
     while (!stop_server)
     {
+        // printf("wait.\n");
         int number = epoll_wait(m_epollfd, events, MAX_EVENT_NUMBER, -1);
         if (number < 0 && errno != EINTR)
         {
