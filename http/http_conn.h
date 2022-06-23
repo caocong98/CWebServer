@@ -20,6 +20,7 @@
 #include <sys/wait.h>
 #include <sys/uio.h>
 #include <map>
+#include <vector>
 
 #include "../lock/locker.h"
 #include "../CGImysql/sql_connection_pool.h"
@@ -125,8 +126,11 @@ public:
     int m_state;  //读为0, 写为1
 
 private:
+    std::vector<int> m_changeids;  // 替换\0字符的索引
+    int diff; //替换索引偏移量
     int m_sockfd;
     sockaddr_in m_address;
+    int m_total_byte;
     //存储读取的请求报文数据
     char m_read_buf[READ_BUFFER_SIZE];
     //缓冲区获取到数据中最后一个字节的下一个位置
@@ -172,6 +176,7 @@ private:
     string m_file_name; //上传文件名称
     string file_content;
     string m_theme;     //对应网站主题
+    string m_boundary;  // formdata 边界
 
     int file_tag;  //文件上传是否成功标记
 
