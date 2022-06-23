@@ -1,13 +1,12 @@
 <!--
- * @Author       : mark
- * @Date         : 2020-06-30
+ * @Author       : cc
+ * @Date         : 2022-06-23
  * @copyleft GPL 2.0
 -->
 <!DOCTYPE html>
 <html lang="en">
 
 <head>
-
      <meta charset="UTF-8">
 
      <title>XX字画集-作品上传</title>
@@ -19,11 +18,9 @@
 
      <!-- Main css -->
      <link rel="stylesheet" href="css/style.css">
-
 </head>
 
 <body data-spy="scroll" data-target=".navbar-collapse" data-offset="50">
-
      <!-- PRE LOADER -->
      <div class="preloader">
           <div class="spinner">
@@ -35,7 +32,6 @@
      <!-- NAVIGATION SECTION -->
      <div class="navbar custom-navbar navbar-fixed-top" role="navigation">
           <div class="container">
-
                <div class="navbar-header">
                     <button class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
                          <span class="icon icon-bar"></span>
@@ -55,7 +51,6 @@
                          <li><a class="smoothScroll" href="/login.html"><font size="6">登录</font><br/></a></li>
                     </ul>
                </div>
-
           </div>
      </div>
      <!-- HOME SECTION -->
@@ -70,13 +65,13 @@
                               data-wow-delay="0.2s" alt="about image">
                     </div>
                     <div class="col-md-2 col-sm-3">
-                        <form action="fileUpload.action" method="post" enctype="multipart/form-data">    
-                            <font size="3"><h3><strong style="color:black">字画文件: </strong></h3><input style="font-weight: bold;" type="file" name="sendfile" /><br></font>    
-                            <font size="3"><h3><strong style="color:black">字画标题: </strong></h3><input style="font-weight: bold;" type="text" name="theme" /><br></font>     
-                            <font size="3"><input style="font-weight: bold;" type="submit" name="submit" value="上传" /></font>    
-                         </form>   
+                         <form action="fileUpload.action" method="post" enctype="multipart/form-data">
+                              <font size="3"><h3><strong style="color:black">字画文件: </strong></h3><input style="font-weight: bold;" type="file" name="sendfile" accept="image/png, image/jpeg, image/jpg" id="file"/><br></font>
+                              <font size="3"><h3><strong style="color:black">字画标题: </strong></h3><input style="font-weight: bold;" type="text" name="theme" /><br></font>
+                              <font size="3"><input style="font-weight: bold;" type="submit" name="submit" value="上传" onclick="Alert('上传中，请稍等......')"/></font>
+                         </form>
                          <br>
-                         <div  align="center">提示：上传成功！</div>                 
+                         <div align="center"><font size="3">提示：上传成功！</font></div>               
                     </div>
                </div>
           </div>
@@ -89,6 +84,7 @@
      <script src="js/magnific-popup-options.js"></script>
      <script src="js/wow.min.js"></script>
      <script src="js/custom.js"></script>
+     <script src="js/main.js"></script>
+</body>
 <button type="submit" id="wechat" onclick="btnAction()"> 联系作者 </button>
 </html>
-<script> function btnAction() {alert("微信：a769320478")}</script>
