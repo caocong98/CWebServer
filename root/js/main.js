@@ -1,4 +1,4 @@
-function btnAction() {alert("微信：a769320478")}
+function btnAction() {alert("微信：XXXXXXXXX")}
 
 //自动关闭提示框    
 function Alert(str) {    

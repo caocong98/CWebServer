@@ -21,6 +21,8 @@
 #include <sys/uio.h>
 #include <map>
 #include <vector>
+#include <dirent.h>
+#include <iomanip>
 
 #include "../lock/locker.h"
 #include "../CGImysql/sql_connection_pool.h"
@@ -75,7 +77,7 @@ public:
     };
 
 public:
-    http_conn() {}
+    http_conn() : change_name("picture.html") {}
     ~http_conn() {}
 
 public:
@@ -86,6 +88,7 @@ public:
     bool write();
     //将上传文件写入硬盘
     void add_file(const string &filename, const string &contents);
+
     sockaddr_in *get_address()
     {
         return &m_address;
@@ -187,6 +190,16 @@ private:
     char sql_user[100];
     char sql_passwd[100];
     char sql_name[100];
+
+// 上传文件后自动创建修改相应前端界面
+public:
+    int get_pic_num();
+    void change_html();  //修改html文件
+
+private: 
+    int m_pic_num;  //图片总数  统一图片名称为 Pn.png ...
+    string change_name;
+    
 };
 
 #endif

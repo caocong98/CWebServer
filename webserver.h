@@ -11,6 +11,11 @@
 #include <stdlib.h>
 #include <cassert>
 #include <sys/epoll.h>
+#include <dirent.h>
+#include <iomanip>
+#include <fstream>
+#include <string>
+#include <vector>
 
 #include "./threadpool/threadpool.h"
 #include "./http/http_conn.h"
@@ -43,11 +48,14 @@ public:
     void dealwithread(int sockfd);
     void dealwithwrite(int sockfd);
 
+    int standard_filename(); //统一资源文件名 Pn
+    void resource_init();   //根据当前图片资源建立相应界面文件
+
 public:
     //基础
     int m_port;
-    char *m_root;
-    char *m_file_root;
+    char *m_root;  // root资源绝对地址
+    char *m_file_root;  //存放上传文件地址
     int m_log_write;
     int m_close_log;
     int m_actormodel;
@@ -79,5 +87,8 @@ public:
     //定时器相关
     client_data *users_timer;
     Utils utils;
+
+    int m_file_num;
+    vector<string> m_file_name;
 };
 #endif
