@@ -31,7 +31,8 @@ void http_conn::change_html() {
     string file_end = m_file_name.substr(m_file_name.find_last_of('.'));//获取. + 文件后缀
     string new_file_name = "P" + to_string(m_pic_num) + file_end; //新图片名称  Pn.png
     string write_file2 = s_file_root + "P" + to_string(m_pic_num) + html_end; //Pn.html
-    string template_file = s_file_root + "template2.html";
+    string template_file1 = s_file_root + "template2.html";  //图片文件
+    string template_file2 = s_file_root + "template3.html";  //视频文件
 
     //更新picture.html
     ifstream ifs1(write_file1.c_str());
@@ -54,7 +55,13 @@ void http_conn::change_html() {
     out1.close();   
 
     //新增Pn.html
-    ifstream ifs2(template_file.c_str());
+    ifstream ifs2;
+    if (file_end == ".mp4" || file_end == ".Mp4" || file_end == ".MP4") { //视频情况
+        ifs2.open(template_file2.c_str());
+    }
+    else {
+        ifs2.open(template_file1.c_str());  // 图片情况
+    }
 	string content2( (istreambuf_iterator<char>(ifs2) ),
 					 (istreambuf_iterator<char>() ) );
 	ifs2.close();
@@ -699,8 +706,15 @@ http_conn::HTTP_CODE http_conn::do_request()
     }
     strncpy(m_real_file + len, m_url, FILENAME_LEN - len - 1);
 
-    if (stat(m_real_file, &m_file_stat) < 0)
-        return NO_RESOURCE;
+    if (stat(m_real_file, &m_file_stat) < 0) {
+        // 访问不存在资源 进入404界面
+        string f404 = doc_root;
+        f404 += "/404.html";
+        strcpy(m_real_file, f404.c_str());
+        // printf("%s\n", m_real_file);
+        stat(m_real_file, &m_file_stat);
+        // return NO_RESOURCE;
+    }
 
     if (!(m_file_stat.st_mode & S_IROTH))
         return FORBIDDEN_REQUEST;

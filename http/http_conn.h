@@ -88,6 +88,8 @@ public:
     bool write();
     //将上传文件写入硬盘
     bool add_file(const string &filename, const string &contents);
+    // 文件上传验证
+    // bool upload_check();
 
     sockaddr_in *get_address()  //日志模块调用
     {

@@ -70,7 +70,8 @@ int WebServer::standard_filename() {
         // printf("oldname:%s\n", filename.c_str());
         filename = m_file_root + filename;
         newname = m_file_root + newname;
-        if (ptr->d_name[0] != 'P') rename(filename.c_str(), newname.c_str());
+        // if (ptr->d_name[0] != 'P') 
+        rename(filename.c_str(), newname.c_str());
 	}
 	closedir(dir);
     return filenum;
@@ -87,7 +88,8 @@ void WebServer::resource_init() {
     string s_file_root = m_root;
     s_file_root.push_back('/');
     string tmp1 = s_file_root + "template1.html";  //用于更新目录页
-    string tmp2 = s_file_root + "template2.html"; //用于更新目录页
+    string tmp2 = s_file_root + "template2.html"; //用于更新目录页 图片类
+    string tmp3 = s_file_root + "template3.html"; //用于更新目录页 视频类
     string update_file1 = s_file_root + "picture.html"; // 更新文件路径
     // printf("route1:%s\n", tmp1.c_str());
     // printf("route2:%s\n", update_file1.c_str());
@@ -102,8 +104,17 @@ void WebServer::resource_init() {
         string theme_now = theme + to_string(i);
         string final = text1 + filename_now + text2 + theme_now + text3;
         content1.insert(location - 1, final); //循环插入 m_file_num行
+
+        string file_end = m_file_name[i - 1].substr(m_file_name[i - 1].find_last_of('.'));//获取. + 文件后缀
+
         // 新建 Pn.html
-        ifstream ifs2(tmp2.c_str());
+        ifstream ifs2;
+        if (file_end == ".mp4" || file_end == ".Mp4" || file_end == ".MP4") { //视频情况
+            ifs2.open(tmp3.c_str());
+        }
+        else {
+            ifs2.open(tmp2.c_str());  // 图片情况
+        }
         string content2( (istreambuf_iterator<char>(ifs2) ),
                         (istreambuf_iterator<char>() ) );  
         ifs2.close();      
