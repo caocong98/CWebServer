@@ -15,13 +15,11 @@ const char *error_500_title = "Internal Error";
 const char *error_500_form = "There was an unusual problem serving the request file.\n";
 
 locker m_lock;
-map<string, string> users;
+static map<string, string> users;
 
 void http_conn::change_html() {
     //  修改picture.html 更改标题 路径
     //  新增Pn.html
-
-
     string text1("<li><a class='smoothScroll' href='/");
     string html_end(".html");
     string text2("'><font size='6'>");
@@ -34,9 +32,6 @@ void http_conn::change_html() {
     string new_file_name = "P" + to_string(m_pic_num) + file_end; //新图片名称  Pn.png
     string write_file2 = s_file_root + "P" + to_string(m_pic_num) + html_end; //Pn.html
     string template_file = s_file_root + "template2.html";
-    
-    // printf("route1:%s\n", tmp1.c_str());
-    // printf("route2:%s\n", update_file1.c_str());
 
     //更新picture.html
     ifstream ifs1(write_file1.c_str());
@@ -70,10 +65,12 @@ void http_conn::change_html() {
     content2.insert(location + 15, new_file_name);  
     ofstream out2(write_file2.c_str(), std::ios::out);
     out2.write(content2.c_str(), content2.size()); // 最终更新 Pn.html
-    out2.close();             
+    out2.close();
+
 }
 
 int http_conn::get_pic_num() {
+    //可能线程安全问题
 	int filenum = 0;
 	DIR* dir;
 	dir = opendir(file_root);
@@ -86,20 +83,16 @@ int http_conn::get_pic_num() {
     return filenum;
 }
 
-void http_conn::add_file(const string& filename, const string& contents) {
+bool http_conn::add_file(const string& filename, const string& contents) {
     ++m_pic_num;
     string file_end = m_file_name.substr(m_file_name.find_last_of('.'));//获取. + 文件后缀
     string new_file_name = "P" + to_string(m_pic_num) + file_end; //新图片名称  Pn.png
     string temp_route = file_root + new_file_name;
-    // printf("content:%s\n", contents.c_str());
-    // printf("length%d\n", m_content_length);
-    // printf("content length:%d\n", contents.size());
-    // printf("file_route:%s\n", temp_route.c_str());
     std::ofstream out(temp_route.c_str(), std::ios::binary | std::ios::out);
-    // outfile.open(temp_route.c_str(), std::ios_base::out);
-    // outfile.write(contents.c_str(), contents.size());
-    // outfile.close();
-    if (!out) printf("open fail\n");
+    if (!out) {
+        // printf("open fail\n");
+        return false;
+    }
     // 通过 m_read_buf将上传文件多次写入相应路径文件
 
     int total_write = contents.size();
@@ -144,11 +137,8 @@ void http_conn::add_file(const string& filename, const string& contents) {
             out.write(m_read_buf, last_to_write);
         }
     }
-    // out.write(contents.c_str(), contents.size());
     out.close();
-    // printf("change_total:%d\n", change_total);
-    // printf("total_to_change:%d\n", m_changeids.size());
-    // printf("upload success!\n");
+    return true;
 }
 
 void http_conn::initmysql_result(connection_pool *connPool)
@@ -292,26 +282,26 @@ void http_conn::init()
     m_state = 0;
     timer_flag = 0;
     improv = 0;
-    file_tag = 1;
     string().swap(file_content); //减少内存占用
     m_file_name = "";
     m_theme = "";
     m_boundary = "";
+    m_string = "";
 
     memset(m_read_buf, '\0', READ_BUFFER_SIZE);
     memset(m_write_buf, '\0', WRITE_BUFFER_SIZE);
     memset(m_real_file, '\0', FILENAME_LEN);
 
-    m_pic_num = get_pic_num();
 }
 
 //继续接收文件剩余内容
 void http_conn::init1()
 {
-    mysql = NULL;
+
     m_start_line = 0;
     m_checked_idx = 0;
     m_read_idx = 0;
+    m_write_idx = 0;
 
     memset(m_read_buf, '\0', READ_BUFFER_SIZE);
 }
@@ -354,10 +344,10 @@ http_conn::LINE_STATUS http_conn::parse_line()
 //非阻塞ET工作模式下，需要一次性将数据读完
 bool http_conn::read_once()
 {
-    if (m_read_idx >= READ_BUFFER_SIZE)
-    {
-        return false;
-    }
+    // if (m_read_idx >= READ_BUFFER_SIZE)
+    // {
+    //     return false;
+    // }
     int bytes_read = 0;
 
     //LT读取数据
@@ -365,8 +355,8 @@ bool http_conn::read_once()
     {
         init1();
         bytes_read = recv(m_sockfd, m_read_buf + m_read_idx, READ_BUFFER_SIZE - m_read_idx, 0);
-        m_total_byte += bytes_read;
-        m_read_idx += bytes_read;
+        if (bytes_read > 0) m_total_byte += bytes_read;
+        if (bytes_read > 0) m_read_idx += bytes_read;
         int changeid = file_content.size();
         for (int i = 0; i < bytes_read; ++i) {
             if (m_read_buf[i] == '\0') {
@@ -375,13 +365,14 @@ bool http_conn::read_once()
             }
             else file_content.push_back(m_read_buf[i]);
         }
-        // printf("fist_buf:%s\n", file_content.c_str());
-        if (bytes_read == 0)
+
+        if (bytes_read == 0)  //对方断开连接
         {
             return false;
         }
         else if (bytes_read == -1) {
-            modfd(m_epollfd, m_sockfd, EPOLLIN, m_TRIGMode);  // !!!!
+            if (errno == EAGAIN || errno == EWOULDBLOCK)  //重试
+                modfd(m_epollfd, m_sockfd, EPOLLIN, m_TRIGMode);  // !!!!
         }
 
         return true;
@@ -491,7 +482,6 @@ http_conn::HTTP_CODE http_conn::parse_headers(char *text)
     else if (strncasecmp(text, "Content-Type: multipart/form-data;", 34) == 0) {
         text += 48;
         m_boundary = text;
-        // printf("m_boundary%s\n", m_boundary.c_str());
     }
     else if (strncasecmp(text, "Content-length:", 15) == 0)
     {
@@ -506,7 +496,7 @@ http_conn::HTTP_CODE http_conn::parse_headers(char *text)
         m_host = new char[strlen(text) + 1];
         strcpy(m_host, text);
     }
-    else
+    else  //其它头部数据按需处理
     {
         LOG_INFO("oop!unknow header: %s", text);
     }
@@ -526,53 +516,16 @@ http_conn::HTTP_CODE http_conn::parse_content(char *text)
     return NO_REQUEST;
 }
 
-//处理formdata 
+//处理formdata 仅仅根据特征判断整个数据包是否接收完毕 
 http_conn::HTTP_CODE http_conn::parse_formdata()
 {
-    // 每次一个空闲进程继续读取数据
-    // int n = 100;  //尝试重新接收次数
-    while (file_content.substr(file_content.size() - 4, 4) != "--\r\n") {
-        
-        init1();
-        int bytes_read = recv(m_sockfd, m_read_buf + m_read_idx, READ_BUFFER_SIZE - m_read_idx, 0);
-        if (bytes_read > 0) m_total_byte += bytes_read;
-        // printf("total:%d\n", m_total_byte);
-        int changeid = file_content.size();
-        for (int i = 0; i < bytes_read; ++i) {
-            if (m_read_buf[i] == '\0') {
-                file_content.push_back('+');
-                m_changeids.push_back(changeid + i);
-            }
-            else file_content.push_back(m_read_buf[i]);
-        }
-        if (bytes_read == -1)
-        {
-            if (file_content.substr(file_content.size() - 4, 4) == "--\r\n") break;
-            // printf("n:%d\n", n);
-            // if (--n == 0) return BAD_REQUEST;
-            // printf("Bad1\n");
-            if (errno == EAGAIN || errno == EWOULDBLOCK) {
-                modfd(m_epollfd, m_sockfd, EPOLLIN, m_TRIGMode);
-                return NO_REQUEST;
-            }
-            modfd(m_epollfd, m_sockfd, EPOLLIN, m_TRIGMode);
-            return NO_REQUEST;
-        }
-        else if (bytes_read == 0)  //客户端关闭连接
-        {
-            // printf("Bad\n");
-            // init();
-            return BAD_REQUEST;
-        }
-        m_read_idx += bytes_read;
+    if (file_content.substr(file_content.size() - 4, 4) != "--\r\n") {
+        return NO_REQUEST;
     }
-    // printf("content_size:%d\n", m_total_byte);
-    // printf("contentlength:%d\n", m_content_length);
-    // printf("Endbuf:%s\n", file_content.substr(file_content.size()-50).c_str());
-    // printf("Endbuf:%s\n", file_content.substr(file_content.size() - 100).c_str());
     return GET_REQUEST;
 }
 
+// 状态机主要调用函数，包括内部状态转移
 http_conn::HTTP_CODE http_conn::process_read()
 {
     LINE_STATUS line_status = LINE_OK;
@@ -619,8 +572,6 @@ http_conn::HTTP_CODE http_conn::process_read()
             ret = parse_formdata();
             if (ret == GET_REQUEST)
                 return do_request();
-            else if (ret == BAD_REQUEST)
-                return BAD_REQUEST;
             return NO_REQUEST;
         }
         default:
@@ -634,7 +585,6 @@ http_conn::HTTP_CODE http_conn::do_request()
 {
     strcpy(m_real_file, doc_root);
     int len = strlen(doc_root);
-    //printf("m_url:%s\n", m_url);
     const char *p = strrchr(m_url, '/');
 
     //处理注册登陆
@@ -671,16 +621,17 @@ http_conn::HTTP_CODE http_conn::do_request()
             strcat(sql_insert, "', '");
             strcat(sql_insert, password);
             strcat(sql_insert, "')");
-
+            LOG_INFO("Register name: %s", name);
             if (users.find(name) == users.end())
             {
                 m_lock.lock();
                 int res = mysql_query(mysql, sql_insert);
-                users.insert(pair<string, string>(name, password));
                 m_lock.unlock();
 
-                if (!res)
+                if (!res) {
                     strcpy(m_url, "/registersuccess.html");
+                    users.insert(pair<string, string>(name, password));
+                }
                 else
                     strcpy(m_url, "/registerError.html");
             }
@@ -700,28 +651,28 @@ http_conn::HTTP_CODE http_conn::do_request()
     //处理文件上传结果
     if (cgi == 1)
     {
-        if (m_method == POST) {
+        m_pic_num = get_pic_num();
+        if (m_method == POST) {  //调试时发现存在请求转为GET请求，原因未知，最新版本应该不会出现该问题。
             // 获取文件名称
-            int id1 = file_content.find("filename");
+            size_t id1 = file_content.find("filename");
             if (m_content_length < 2048) { // 处理提交空文件情况
                 strcpy(m_url, "/loadempty.html");
             }
             else {
-
                 id1 += 10; //文件名第一个字符
                 while (file_content[id1] != '"') {
                     m_file_name.push_back(file_content[id1++]);
                 }
                 // 获取文件主题
-                int id2 = file_content.find("theme");
+                size_t id2 = file_content.find("theme");
                 if (id2 != string().npos) {
                     id2 += 10; //文件主题第一个字符
                     while (file_content[id2] != '\r') {
                         m_theme.push_back(file_content[id2++]);
                     }
                 }
-                if (m_theme.size() == 0) printf("Empty theme.\n");
-                else printf("The theme is : %s\n", m_theme.c_str());
+                // if (m_theme.size() == 0) printf("Empty theme.\n");
+                // else printf("The theme is : %s\n", m_theme.c_str());
                 // 截取文件主体内容
                 id1 = file_content.find("\r\n\r\n", id1);
                 id1 += 4;
@@ -732,22 +683,19 @@ http_conn::HTTP_CODE http_conn::do_request()
                 // printf("newcontent:\n%s\n", file_content.c_str());
 
                 //执行指定业务功能
-                add_file(m_file_name, file_content);
-                change_html();
-                strcpy(m_url, "/loadsuccess.html");
+                if (add_file(m_file_name, file_content)) {
+                    change_html();
+                    strcpy(m_url, "/loadsuccess.html");
+                }
+                else {
+                    //文件名冲突等情况
+                    strcpy(m_url, "/loadfail.html");
+                }
             }
         }
         else {
             strcpy(m_url, "/loadfail.html");
         }
-        // add_file("test.txt", file_content);
-        // if (file_tag) {
-        //     strcpy(m_url, "/loadsuccess.html");
-        // }
-        // else {
-        //     strcpy(m_url, "/loadfail.html");
-        // }
-
     }
     strncpy(m_real_file + len, m_url, FILENAME_LEN - len - 1);
 

@@ -35,7 +35,7 @@ class http_conn
 {
 public:
     static const int FILENAME_LEN = 200;
-    static const int READ_BUFFER_SIZE = 2048;
+    static const int READ_BUFFER_SIZE = 4096;  //GET 2048足够一次读完
     static const int WRITE_BUFFER_SIZE = 1024;
     enum METHOD
     {
@@ -64,7 +64,7 @@ public:
         BAD_REQUEST,  // 请求语法错误
         NO_RESOURCE,
         FORBIDDEN_REQUEST,
-        FILE_REQUEST,
+        FILE_REQUEST, // do_request()函数后状态，利用向量写入请求文件内容
         INTERNAL_ERROR,
         CLOSED_CONNECTION
     };
@@ -77,7 +77,7 @@ public:
     };
 
 public:
-    http_conn() : change_name("picture.html") {}
+    http_conn() {}
     ~http_conn() {}
 
 public:
@@ -87,15 +87,15 @@ public:
     bool read_once();
     bool write();
     //将上传文件写入硬盘
-    void add_file(const string &filename, const string &contents);
+    bool add_file(const string &filename, const string &contents);
 
-    sockaddr_in *get_address()
+    sockaddr_in *get_address()  //日志模块调用
     {
         return &m_address;
     }
     void initmysql_result(connection_pool *connPool);
     int timer_flag;
-    int improv;
+    int improv; // reactor 标记
 
 
 private:
@@ -106,7 +106,7 @@ private:
     HTTP_CODE parse_request_line(char *text);
     HTTP_CODE parse_headers(char *text);
     HTTP_CODE parse_content(char *text);
-    HTTP_CODE parse_formdata();  //接收文件处理
+    HTTP_CODE parse_formdata();  //当前在接受formdata内容
     HTTP_CODE do_request();
     //m_start_line是已经解析的字符
     //get_line用于将指针向后偏移，指向未处理的字符
@@ -126,14 +126,15 @@ public:
     static int m_epollfd;
     static int m_user_count;
     MYSQL *mysql;
-    int m_state;  //读为0, 写为1
+    int m_state;  //读为0, 写为1  Reactor工作模式
 
 private:
-    std::vector<int> m_changeids;  // 替换\0字符的索引
-    int diff; //替换索引偏移量
+    // 接受文件内容用string接收，存在被\0截断情况，用+替换\0
+    std::vector<int> m_changeids;  // \0替换为+的索引
+    int diff; //替换索引偏移量 用于还原原数据
     int m_sockfd;
     sockaddr_in m_address;
-    int m_total_byte;
+    int m_total_byte;  //接收内容总字节数
     //存储读取的请求报文数据
     char m_read_buf[READ_BUFFER_SIZE];
     //缓冲区获取到数据中最后一个字节的下一个位置
@@ -152,12 +153,12 @@ private:
     char m_real_file[FILENAME_LEN];
 
 
-    //请求目标url 深拷贝
+    //请求目标文件url 深拷贝
     char *m_url_t;
     char *m_url;  //深拷贝
     char *m_version;  // 深拷贝
     char *m_host;
-    //内容实体部分长度， 包括上传文件部分
+    //内容实体部分长度， 包括上传文件部分 空行\r\n\r\n后的所有数据长度
     int m_content_length;
     //是否长连接
     bool m_linger;
@@ -168,23 +169,20 @@ private:
     struct iovec m_iv[2];  
     // io向量块数，应用于聚集写 writev
     int m_iv_count;
-    int cgi;        //是否为上传文件请求
-    char *m_string; //存储请求头数据 这里为登陆或注册的账号和密码
+    int cgi;        //是否为上传文件请求标记
+    string m_string; //存储post表单数据  这里为登陆或注册的账号和密码
     int bytes_to_send;  // 剩余发送字节数
     int bytes_have_send;  // 已发送字节数
     char *doc_root;  //root资源绝对路径
     char *file_root; //存放上传文件绝对路径
 
-    std::ofstream outfile;  //写文件流
     string m_file_name; //上传文件名称
     string file_content;
     string m_theme;     //对应网站主题
     string m_boundary;  // formdata 边界
 
-    int file_tag;  //文件上传是否成功标记
-
-    map<string, string> m_users;  //没用
-    int m_TRIGMode;
+    // map<string, string> m_users;  //没用到
+    int m_TRIGMode;  // LT ET选择
     int m_close_log;
 
     char sql_user[100];
@@ -193,13 +191,11 @@ private:
 
 // 上传文件后自动创建修改相应前端界面
 public:
-    int get_pic_num();
-    void change_html();  //修改html文件
+    int get_pic_num();   //获取当前服务器中存储图片数量，用于更新标题
+    void change_html();  //修改html文件  1、更新目录页  2、添加新图片对应界面
 
 private: 
     int m_pic_num;  //图片总数  统一图片名称为 Pn.png ...
-    string change_name;
-    
 };
 
 #endif
