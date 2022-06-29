@@ -1,3 +1,21 @@
+function fileChange(target) {
+    var fileSize = 0;
+    fileSize = target.files[0].size;
+    var size = fileSize / 1024;
+    if(size>15000){
+       alert("附件不能大于15M");
+       target.value="";
+       return false;   //阻止submit提交
+    }
+    var name=target.value;
+    var fileName = name.substring(name.lastIndexOf(".")+1).toLowerCase();
+    // if(fileName !="jpg" && fileName !="jpeg" && fileName !="mp4" && fileName !="png"){
+    //    alert("请选择图片格式文件上传(jpg,png,gif,dwg,pdf,gif等)！");
+    //    target.value="";
+    //    return false;   //阻止submit提交
+    // }
+}
+
 function btnAction() {alert("微信：XXXXXXXXX")}
 
 //自动关闭提示框    
