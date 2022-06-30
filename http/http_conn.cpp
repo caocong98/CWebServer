@@ -221,6 +221,7 @@ void modfd(int epollfd, int fd, int ev, int TRIGMode)
         event.events = ev | EPOLLET | EPOLLONESHOT | EPOLLRDHUP;
     else
         event.events = ev | EPOLLONESHOT | EPOLLRDHUP;
+        // event.events = ev | EPOLLRDHUP;
 
     epoll_ctl(epollfd, EPOLL_CTL_MOD, fd, &event);
 }
@@ -247,7 +248,7 @@ void http_conn::init(int sockfd, const sockaddr_in &addr, char *root, char *froo
     m_sockfd = sockfd;
     m_address = addr;
 
-    addfd(m_epollfd, sockfd, true, m_TRIGMode);
+    addfd(m_epollfd, sockfd, true, m_TRIGMode);//默认开启EPOLLONESHOT
     m_user_count++;
 
     //当浏览器出现连接重置时，可能是网站根目录出错或http响应格式出错或者访问的文件中内容完全为空
@@ -377,10 +378,10 @@ bool http_conn::read_once()
         {
             return false;
         }
-        else if (bytes_read == -1) {
-            if (errno == EAGAIN || errno == EWOULDBLOCK)  //重试
-                modfd(m_epollfd, m_sockfd, EPOLLIN, m_TRIGMode);  // !!!!
-        }
+        // else if (bytes_read == -1) {
+        //     if (errno == EAGAIN || errno == EWOULDBLOCK)  //重试
+        //         modfd(m_epollfd, m_sockfd, EPOLLIN, m_TRIGMode);  // !!!!
+        // }
 
         return true;
     }
@@ -905,7 +906,7 @@ void http_conn::process()
     HTTP_CODE read_ret = process_read();
     if (read_ret == NO_REQUEST)  //继续接收客户数据
     {
-        modfd(m_epollfd, m_sockfd, EPOLLIN, m_TRIGMode);
+        modfd(m_epollfd, m_sockfd, EPOLLIN, m_TRIGMode); //重置EPOLLONESHOT
         return;
     }
     bool write_ret = process_write(read_ret);
