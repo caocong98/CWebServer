@@ -62,6 +62,9 @@ int WebServer::standard_filename() {
 		filenum++;
         string filename = ptr->d_name;
         string file_end = filename.substr(filename.find_last_of('.'));//获取. + 文件后缀
+        for (int i = 1; i < file_end.size(); ++i) { //统一小写格式
+            file_end[i] = tolower(file_end[i]);
+        }
         string fn = to_string(filenum);
         string newname = "P" + fn + file_end; 
         // printf("newname:%s\n", newname.c_str());
@@ -70,7 +73,7 @@ int WebServer::standard_filename() {
         // printf("oldname:%s\n", filename.c_str());
         filename = m_file_root + filename;
         newname = m_file_root + newname;
-        // if (ptr->d_name[0] != 'P') 
+        if (ptr->d_name[0] == 'P' && ptr->d_name[1] >= '0' && ptr->d_name[1] <= '9') continue;
         rename(filename.c_str(), newname.c_str());
 	}
 	closedir(dir);
@@ -228,7 +231,7 @@ void WebServer::eventListen()
     m_epollfd = epoll_create(5);
     assert(m_epollfd != -1);
 
-    utils.addfd(m_epollfd, m_listenfd, false, m_LISTENTrigmode);
+    utils.addfd(m_epollfd, m_listenfd, false, m_LISTENTrigmode); //listen不开启EPOLLONESHOT
     http_conn::m_epollfd = m_epollfd;
 
     ret = socketpair(PF_UNIX, SOCK_STREAM, 0, m_pipefd);

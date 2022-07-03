@@ -29,6 +29,9 @@ void http_conn::change_html() {
     s_file_root.push_back('/');
     string write_file1 = s_file_root + "picture.html"; // 更新文件路径
     string file_end = m_file_name.substr(m_file_name.find_last_of('.'));//获取. + 文件后缀
+    for (int i = 1; i < file_end.size(); ++i) { //统一小写格式
+        file_end[i] = tolower(file_end[i]);
+    }
     string new_file_name = "P" + to_string(m_pic_num) + file_end; //新图片名称  Pn.png
     string write_file2 = s_file_root + "P" + to_string(m_pic_num) + html_end; //Pn.html
     string template_file1 = s_file_root + "template2.html";  //图片文件
@@ -56,7 +59,7 @@ void http_conn::change_html() {
 
     //新增Pn.html
     ifstream ifs2;
-    if (file_end == ".mp4" || file_end == ".Mp4" || file_end == ".MP4") { //视频情况
+    if (file_end == ".mp4") { //视频情况
         ifs2.open(template_file2.c_str());
     }
     else {
@@ -93,6 +96,9 @@ int http_conn::get_pic_num() {
 bool http_conn::add_file(const string& filename, const string& contents) {
     ++m_pic_num;
     string file_end = m_file_name.substr(m_file_name.find_last_of('.'));//获取. + 文件后缀
+    for (int i = 1; i < file_end.size(); ++i) { //统一小写格式
+        file_end[i] = tolower(file_end[i]);
+    }
     string new_file_name = "P" + to_string(m_pic_num) + file_end; //新图片名称  Pn.png
     string temp_route = file_root + new_file_name;
     std::ofstream out(temp_route.c_str(), std::ios::binary | std::ios::out);
@@ -596,7 +602,7 @@ http_conn::HTTP_CODE http_conn::do_request()
     const char *p = strrchr(m_url, '/');
 
     //处理注册登陆
-    if (*(p + 1) == '2' || *(p + 1) == '3')
+    if ((*(p + 1) == '2' || *(p + 1) == '3') && m_method == POST)
     {
 
         char *m_url_real = (char *)malloc(sizeof(char) * 200);
