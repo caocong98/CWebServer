@@ -1,4 +1,5 @@
 #include "webserver.h"
+#include <algorithm>
 
 WebServer::WebServer()
 {
@@ -68,15 +69,20 @@ int WebServer::standard_filename() {
         string fn = to_string(filenum);
         string newname = "P" + fn + file_end; 
         // printf("newname:%s\n", newname.c_str());
+        if (ptr->d_name[0] == 'P' && ptr->d_name[1] >= '0' && ptr->d_name[1] <= '9') {
+            //处理重启服务器重复修改文件名情况
+            m_file_name.push_back(filename);
+            continue;
+        }
         m_file_name.push_back(newname);
         // printf("newname:%s\n", newname.c_str());
         // printf("oldname:%s\n", filename.c_str());
         filename = m_file_root + filename;
         newname = m_file_root + newname;
-        if (ptr->d_name[0] == 'P' && ptr->d_name[1] >= '0' && ptr->d_name[1] <= '9') continue;
         rename(filename.c_str(), newname.c_str());
 	}
 	closedir(dir);
+    sort(m_file_name.begin(), m_file_name.end());
     return filenum;
 }
 
@@ -85,7 +91,8 @@ void WebServer::resource_init() {
     string text1("<li><a class='smoothScroll' href='/");
     string filename(".html");
     string text2("'><font size='6'>");
-    string theme("字画图片");
+    string theme_pic("字画图片");
+    string theme_mv("视频文件");
     string text3("</font><br/></a></li>\n");
 
     string s_file_root = m_root;
@@ -104,15 +111,15 @@ void WebServer::resource_init() {
     for (int i = 1; i <= m_file_num; ++i) {
         int location = content1.find("mytag1");
         string filename_now = "P" + to_string(i) + filename;  //新建文件名以及目录页更新内容
-        string theme_now = theme + to_string(i);
+        string file_end = m_file_name[i - 1].substr(m_file_name[i - 1].find_last_of('.'));//获取. + 文件后缀
+        string theme_now = file_end == ".mp4" ? theme_mv + to_string(i) : theme_pic + to_string(i);
         string final = text1 + filename_now + text2 + theme_now + text3;
         content1.insert(location - 1, final); //循环插入 m_file_num行
 
-        string file_end = m_file_name[i - 1].substr(m_file_name[i - 1].find_last_of('.'));//获取. + 文件后缀
 
         // 新建 Pn.html
         ifstream ifs2;
-        if (file_end == ".mp4" || file_end == ".Mp4" || file_end == ".MP4") { //视频情况
+        if (file_end == ".mp4") { //视频情况
             ifs2.open(tmp3.c_str());
         }
         else {
@@ -236,7 +243,11 @@ void WebServer::eventListen()
 
     ret = socketpair(PF_UNIX, SOCK_STREAM, 0, m_pipefd);
     assert(ret != -1);
+    //设置管道写端为非阻塞，为什么写端要非阻塞？
+    //send是将信息发送给套接字缓冲区，如果缓冲区满了，则会阻塞，这时候会进一步增加信号处理函数的执行时间，
+    //为此，将其修改为非阻塞。 未对非阻塞异常情况处理，因为，定时事件可以不是必须处理，忽略后之后还会触发
     utils.setnonblocking(m_pipefd[1]);
+    //设置管道读端为ET非阻塞
     utils.addfd(m_epollfd, m_pipefd[0], false, 0);
 
     utils.addsig(SIGPIPE, SIG_IGN);
@@ -459,7 +470,7 @@ void WebServer::dealwithwrite(int sockfd)
                 adjust_timer(timer);
             }
         }
-        else
+        else //服务器端关闭连接，移除对应的定时器
         {
             deal_timer(timer, sockfd);
         }
@@ -470,6 +481,7 @@ void WebServer::eventLoop()
 {
     bool timeout = false;
     bool stop_server = false;
+    // printf("m_actormodel:%d\n", m_actormodel);
 
     while (!stop_server)
     {
@@ -501,6 +513,7 @@ void WebServer::eventLoop()
             //处理信号
             else if ((sockfd == m_pipefd[0]) && (events[i].events & EPOLLIN))
             {
+                //接收到SIGALRM信号，timeout设置为True，具体逻辑处理放主线程最后执行
                 bool flag = dealwithsignal(timeout, stop_server);
                 if (false == flag)
                     LOG_ERROR("%s", "dealclientdata failure");
@@ -515,6 +528,8 @@ void WebServer::eventLoop()
                 dealwithwrite(sockfd);
             }
         }
+        //处理定时器为非必须事件，收到信号并不是立马处理
+        //完成读写事件后，再进行处理
         if (timeout)
         {
             utils.timer_handler();

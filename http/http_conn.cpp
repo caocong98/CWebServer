@@ -44,8 +44,9 @@ void http_conn::change_html() {
 	ifs1.close();
     int location = content1.find("mytag1");
     string final;
-    string theme_auto = "无标题图片";
-    theme_auto += to_string(m_pic_num);
+    string theme_auto_pic = "无标题图片";
+    string theme_auto_mv = "无标题视频";
+    string theme_auto = file_end == ".mp4" ? theme_auto_mv + to_string(m_pic_num) : theme_auto_pic + to_string(m_pic_num);
     if (m_theme == "") {
         final = text1 + "P" + to_string(m_pic_num) + html_end + text2 + theme_auto + text3;
     }
@@ -391,7 +392,7 @@ bool http_conn::read_once()
 
         return true;
     }
-    //ET读数据
+    //ET读数据   针对上传文件情况功能未实现
     else
     {
         while (true)
@@ -747,6 +748,8 @@ bool http_conn::write()
 {
     int temp = 0;
 
+    //若要发送的数据长度为0
+    //表示响应报文为空，一般不会出现这种情况
     if (bytes_to_send == 0)
     {
         modfd(m_epollfd, m_sockfd, EPOLLIN, m_TRIGMode);
@@ -756,40 +759,51 @@ bool http_conn::write()
 
     while (1)
     {
+        //将响应报文的状态行、消息头、空行和响应正文发送给浏览器端
         temp = writev(m_sockfd, m_iv, m_iv_count);
-
+        // printf("sent %d datas.\n", temp);
         if (temp < 0)
         {
+            //重新注册EPOLLONESHOT！！
             if (errno == EAGAIN)
             {
                 modfd(m_epollfd, m_sockfd, EPOLLOUT, m_TRIGMode);
                 return true;
             }
+            //否则关闭连接
             unmap();
             return false;
         }
 
         bytes_have_send += temp;
         bytes_to_send -= temp;
+
+        //第一个iov头部信息发送完毕
         if (bytes_have_send >= m_iv[0].iov_len)
         {
+            //不再发送第一个iov
             m_iv[0].iov_len = 0;
+            //更新第二个iov起始地址，及剩余长度
             m_iv[1].iov_base = m_file_address + (bytes_have_send - m_write_idx);
             m_iv[1].iov_len = bytes_to_send;
         }
         else
         {
+            //继续发送第一个iov,更新相关信息
             m_iv[0].iov_base = m_write_buf + bytes_have_send;
             m_iv[0].iov_len = m_iv[0].iov_len - bytes_have_send;
         }
 
         if (bytes_to_send <= 0)
         {
+            //发送完毕
             unmap();
+            //重置EPOLLONESHOT
             modfd(m_epollfd, m_sockfd, EPOLLIN, m_TRIGMode);
 
             if (m_linger)
             {
+                //长连接
                 init();
                 return true;
             }
@@ -802,17 +816,25 @@ bool http_conn::write()
 }
 bool http_conn::add_response(const char *format, ...)
 {
+    //如果写入内容超出m_write_buf大小则报错
     if (m_write_idx >= WRITE_BUFFER_SIZE)
         return false;
+    
+    //定义可变参数列表
     va_list arg_list;
+    //将变量arg_list初始化为传入参数
     va_start(arg_list, format);
+    //将数据format从可变参数列表写入缓冲区写，返回写入数据的长度
     int len = vsnprintf(m_write_buf + m_write_idx, WRITE_BUFFER_SIZE - 1 - m_write_idx, format, arg_list);
+    //如果写入的数据长度超过缓冲区剩余空间，则报错
     if (len >= (WRITE_BUFFER_SIZE - 1 - m_write_idx))
     {
         va_end(arg_list);
         return false;
     }
+    //更新m_write_idx位置
     m_write_idx += len;
+    //清空可变参列表
     va_end(arg_list);
 
     LOG_INFO("request:%s", m_write_buf);
