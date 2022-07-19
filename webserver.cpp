@@ -287,6 +287,7 @@ void WebServer::adjust_timer(util_timer *timer)
     utils.m_timer_lst.adjust_timer(timer);
 
     LOG_INFO("%s", "adjust timer once");
+    // printf("Adjust timer once %s %d\n", inet_ntoa(timer->user_data->address.sin_addr), timer->user_data->sockfd);
 }
 
 void WebServer::deal_timer(util_timer *timer, int sockfd)
@@ -298,6 +299,7 @@ void WebServer::deal_timer(util_timer *timer, int sockfd)
     }
 
     LOG_INFO("close fd %d", users_timer[sockfd].sockfd);
+    // printf("close fd %d", users_timer[sockfd].sockfd);
 }
 
 bool WebServer::dealclinetdata()
@@ -535,6 +537,7 @@ void WebServer::eventLoop()
             utils.timer_handler();
 
             LOG_INFO("%s", "timer tick");
+            // printf("connect num:%d\n", http_conn::m_user_count);
 
             timeout = false;
         }

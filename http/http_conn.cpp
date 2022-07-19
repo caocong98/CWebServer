@@ -14,6 +14,8 @@ const char *error_404_form = "The requested file was not found on this server.\n
 const char *error_500_title = "Internal Error";
 const char *error_500_form = "There was an unusual problem serving the request file.\n";
 
+const string http_conn::FILE_LOAD_PASSWD = "6666";
+
 locker m_lock;
 static map<string, string> users;
 
@@ -302,6 +304,7 @@ void http_conn::init()
     m_theme = "";
     m_boundary = "";
     m_string = "";
+    m_passwd = "";
 
     memset(m_read_buf, '\0', READ_BUFFER_SIZE);
     memset(m_write_buf, '\0', WRITE_BUFFER_SIZE);
@@ -452,11 +455,16 @@ http_conn::HTTP_CODE http_conn::parse_request_line(char *text)
         m_url_t += 8;
         m_url_t = strchr(m_url_t, '/');
     }
+    if (strncasecmp(m_url_t, "/fileVerify.action", 18) == 0)
+    {
+        cgi = 1; //上传文件密码验证
+    }
     if (strncasecmp(m_url_t, "/fileUpload.action", 18) == 0)
     {
-        cgi = 1; //上传文件标记
+        cgi = 2; //上传文件标记
     }
-    m_url = new char[strlen(m_url_t) + 1];
+    // m_url = new char[strlen(m_url_t) + 1];
+    m_url = new char[strlen(m_url_t) + 20];  // 多开辟20长度，避免之后url跳转越界拷贝
     strcpy(m_url, m_url_t);
     // printf("m_url:%s\n", m_url);
     if (!m_url || m_url[0] != '/')
@@ -663,8 +671,28 @@ http_conn::HTTP_CODE http_conn::do_request()
                 strcpy(m_url, "/logError.html");
         }
     }
+
+    // 验证文件上传密码
+    if (cgi == 1) {
+        //获取上传密码
+        // printf("%s\n\n", file_content.c_str());
+        size_t ind = file_content.find("rootpasswd");
+        ind += 15;
+        while (file_content[ind] != '\r') {
+            m_passwd.push_back(file_content[ind++]);
+            // printf("%s\n", m_passwd.c_str());
+        }
+        //验证
+        if (m_passwd == FILE_LOAD_PASSWD) {
+            strcpy(m_url, "/fileload.html");
+        }
+        else {
+            strcpy(m_url, "/fileloadverifyfail.html");
+        }
+    }
+
     //处理文件上传结果
-    if (cgi == 1)
+    if (cgi == 2)
     {
         m_pic_num = get_pic_num();
         if (m_method == POST) {  //调试时发现存在请求转为GET请求，原因未知，最新版本应该不会出现该问题。

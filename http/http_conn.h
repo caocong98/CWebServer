@@ -37,6 +37,7 @@ public:
     static const int FILENAME_LEN = 200;
     static const int READ_BUFFER_SIZE = 4096;  //GET 2048足够一次读完
     static const int WRITE_BUFFER_SIZE = 1024;
+    static const string FILE_LOAD_PASSWD;  //上传文件验证码
     enum METHOD
     {
         GET = 0,
@@ -181,6 +182,7 @@ private:
     string m_file_name; //上传文件名称
     string file_content;
     string m_theme;     //对应网站主题
+    string m_passwd;   // 文件上传密码
     string m_boundary;  // formdata 边界
 
     // map<string, string> m_users;  //没用到

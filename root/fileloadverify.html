@@ -9,7 +9,7 @@
 <head>
      <meta charset="UTF-8">
 
-     <title>XX字画集-作品上传</title>
+     <title>XX字画集-作品上传验证</title>
      <link rel="icon" href="images/favicon.ico">
      <link rel="stylesheet" href="css/bootstrap.min.css">
      <link rel="stylesheet" href="css/animate.css">
@@ -59,19 +59,16 @@
                <div class="row">
                     <div class="col-md-offset-3 col-md-2 col-sm-3">
                         <br>
-                        <br>
-                        <br>
                          <img src="images/profile-image.jpg" class="wow fadeInUp img-responsive img-circle"
                               data-wow-delay="0.2s" alt="about image">
                     </div>
                     <div class="col-md-2 col-sm-3">
-                         <form action="fileUpload.action" method="post" enctype="multipart/form-data">
-                              <font size="3"><h3><strong style="color:black">字画文件: </strong></h3><input style="font-weight: bold;" type="file" name="sendfile" accept="image/png, image/jpeg, image/jpg, audio/mp4, video/mp4" id="file" onchange="fileChange(this)"/></font>
-                              <font size="3"><h3><strong style="color:black">字画标题: </strong></h3><input style="font-weight: bold;" type="text" name="theme" /></font>
-                              <font size="3"><input style="font-weight: bold;margin-top: 10px;" type="submit" name="submit" value="上传" onclick="Alert('上传中，请稍等......')"/></font>
+                         <form action="fileVerify.action" method="post" enctype="multipart/form-data">
+                              <font size="3"><h3><strong style="color:black">管理员密码: </strong></h3><input style="font-weight: bold;" type="text" name="rootpasswd" /></font>
+                              <font size="3"><input style="font-weight: bold; margin-top: 10px;" type="submit" name="submit" value="验证" onclick="Alert('验证中，请稍等......')"/></font>
                          </form>
                          <br>
-                         <div align="center" style="white-space:nowrap;"><font size="3">未选择文件，请重新上传。</font></div>               
+                         <div align="center" style="white-space:nowrap;"><font size="3" >文件上传，请先验证。</font></div>               
                     </div>
                </div>
           </div>
