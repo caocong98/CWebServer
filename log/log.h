@@ -5,7 +5,8 @@
 #include <iostream>
 #include <string>
 #include <stdarg.h>
-#include <pthread.h>
+// #include <pthread.h>
+#include <thread>
 #include "block_queue.h"
 
 using namespace std;
@@ -20,7 +21,7 @@ public:
         return &instance;
     }
 
-    static void *flush_log_thread(void *args)
+    static void flush_log_thread()
     {
         Log::get_instance()->async_write_log();
     }

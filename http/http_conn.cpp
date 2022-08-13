@@ -299,7 +299,8 @@ void http_conn::init()
     m_state = 0;
     timer_flag = 0;
     improv = 0;
-    string().swap(file_content); //减少内存占用
+    // string().swap(file_content); //减少内存占用   时间换空间
+    file_content.clear(); //空间换时间，空间不释放
     m_file_name = "";
     m_theme = "";
     m_boundary = "";
@@ -362,10 +363,7 @@ http_conn::LINE_STATUS http_conn::parse_line()
 //非阻塞ET工作模式下，需要一次性将数据读完
 bool http_conn::read_once()
 {
-    // if (m_read_idx >= READ_BUFFER_SIZE)
-    // {
-    //     return false;
-    // }
+
     int bytes_read = 0;
 
     //LT读取数据
@@ -395,12 +393,24 @@ bool http_conn::read_once()
 
         return true;
     }
-    //ET读数据   针对上传文件情况功能未实现
+    //ET读数据   针对上传文件情况功能未实现，需要将请求行，请求头char*处理模式更新为string处理模式
     else
     {
+        // int readtimes = 1;  //ET模式循环第一次读，先进行一次http逻辑处理，获取请求行，请求头部信息。
         while (true)
         {
+            init1();
             bytes_read = recv(m_sockfd, m_read_buf + m_read_idx, READ_BUFFER_SIZE - m_read_idx, 0);
+            if (bytes_read > 0) m_total_byte += bytes_read;
+            if (bytes_read > 0) m_read_idx += bytes_read;
+            int changeid = file_content.size();
+            for (int i = 0; i < bytes_read; ++i) {
+                if (m_read_buf[i] == '\0') {
+                    file_content.push_back('+');
+                    m_changeids.push_back(changeid + i);
+                }
+                else file_content.push_back(m_read_buf[i]);
+            }
             if (bytes_read == -1)
             {
                 if (errno == EAGAIN || errno == EWOULDBLOCK)  //读完再次尝试
@@ -411,7 +421,8 @@ bool http_conn::read_once()
             {
                 return false;
             }
-            m_read_idx += bytes_read;
+            // if (readtimes == 1) process();
+            // ++readtimes;
         }
         return true;
     }
@@ -695,49 +706,44 @@ http_conn::HTTP_CODE http_conn::do_request()
     if (cgi == 2)
     {
         m_pic_num = get_pic_num();
-        if (m_method == POST) {  //调试时发现存在请求转为GET请求，原因未知，最新版本应该不会出现该问题。
-            // 获取文件名称
-            size_t id1 = file_content.find("filename");
-            if (m_content_length < 2048) { // 处理提交空文件情况
-                strcpy(m_url, "/loadempty.html");
-            }
-            else {
-                id1 += 10; //文件名第一个字符
-                while (file_content[id1] != '"') {
-                    m_file_name.push_back(file_content[id1++]);
-                }
-                // 获取文件主题
-                size_t id2 = file_content.find("theme");
-                if (id2 != string().npos) {
-                    id2 += 10; //文件主题第一个字符
-                    while (file_content[id2] != '\r') {
-                        m_theme.push_back(file_content[id2++]);
-                    }
-                }
-                // if (m_theme.size() == 0) printf("Empty theme.\n");
-                // else printf("The theme is : %s\n", m_theme.c_str());
-                // 截取文件主体内容
-                id1 = file_content.find("\r\n\r\n", id1);
-                id1 += 4;
-                diff = id1; // 剔除了前diff个字符
-                id2 = file_content.find(m_boundary, id1);
-                // printf("oldcontent:\n%s\n", file_content.c_str());
-                file_content = file_content.substr(id1, id2 - id1 - 8);
-                // printf("newcontent:\n%s\n", file_content.c_str());
-
-                //执行指定业务功能
-                if (add_file(m_file_name, file_content)) {
-                    change_html();
-                    strcpy(m_url, "/loadsuccess.html");
-                }
-                else {
-                    //文件名冲突等情况
-                    strcpy(m_url, "/loadfail.html");
-                }
-            }
+        // 获取文件名称
+        size_t id1 = file_content.find("filename");
+        id1 += 10; //文件名第一个字符
+        while (file_content[id1] != '"') {
+            m_file_name.push_back(file_content[id1++]);
+        }
+        if (m_file_name.empty()) {  //处理空提交情况
+            strcpy(m_url, "/loadempty.html");
         }
         else {
-            strcpy(m_url, "/loadfail.html");
+            // 获取文件主题
+            size_t id2 = file_content.find("theme");
+            if (id2 != string().npos) {
+                id2 += 10; //文件主题第一个字符
+                while (file_content[id2] != '\r') {
+                    m_theme.push_back(file_content[id2++]);
+                }
+            }
+            // if (m_theme.size() == 0) printf("Empty theme.\n");
+            // else printf("The theme is : %s\n", m_theme.c_str());
+            // 截取文件主体内容
+            id1 = file_content.find("\r\n\r\n", id1);
+            id1 += 4;
+            diff = id1; // 剔除了前diff个字符
+            id2 = file_content.find(m_boundary, id1);
+            // printf("oldcontent:\n%s\n", file_content.c_str());
+            file_content = file_content.substr(id1, id2 - id1 - 8);
+            // printf("newcontent:\n%s\n", file_content.c_str());
+
+            //执行指定业务功能
+            if (add_file(m_file_name, file_content)) {
+                change_html();
+                strcpy(m_url, "/loadsuccess.html");
+            }
+            else {
+                //文件名冲突等情况
+                strcpy(m_url, "/loadfail.html");
+            }
         }
     }
     strncpy(m_real_file + len, m_url, FILENAME_LEN - len - 1);
@@ -775,7 +781,7 @@ void http_conn::unmap()
 bool http_conn::write()
 {
     int temp = 0;
-
+    // ET写
     //若要发送的数据长度为0
     //表示响应报文为空，一般不会出现这种情况
     if (bytes_to_send == 0)
@@ -792,10 +798,14 @@ bool http_conn::write()
         // printf("sent %d datas.\n", temp);
         if (temp < 0)
         {
-            //重新注册EPOLLONESHOT！！
+            //socket是非阻塞时,如返回此错误,表示写缓冲队列已满
             if (errno == EAGAIN)
             {
-                modfd(m_epollfd, m_sockfd, EPOLLOUT, m_TRIGMode);
+  	            // 方案1、在这里做延时后再重试，保证一次性写完，避免重复调用epoll_wait
+                // usleep(1000);
+                // continue;
+                // 方案2、重新注册EPPOLLONESHOT
+                modfd(m_epollfd, m_sockfd, EPOLLOUT, m_TRIGMode);//重新注册EPOLLONESHOT！！
                 return true;
             }
             //否则关闭连接

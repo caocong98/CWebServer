@@ -18,6 +18,7 @@
 #include <vector>
 
 #include "./threadpool/threadpool.h"
+#include "./CGImysql/sql_connection_pool.h"
 #include "./http/http_conn.h"
 
 const int MAX_FD = 65536;           //最大文件描述符
@@ -33,6 +34,8 @@ public:
     void init(int port , string user, string passWord, string databaseName,
               int log_write , int opt_linger, int trigmode, int sql_num,
               int thread_num, int close_log, int actor_model);
+
+    void Run(http_conn* request);
 
     void thread_pool();
     void sql_pool();
@@ -72,7 +75,7 @@ public:
     int m_sql_num;
 
     //线程池相关
-    threadpool<http_conn> *m_pool;
+    std::unique_ptr<ThreadPool> m_pool;
     int m_thread_num;
 
     //epoll_event相关

@@ -6,7 +6,7 @@
 #include <semaphore.h>
 
 class sem
-{
+{ //信号量
 public:
     sem()
     {
@@ -39,7 +39,7 @@ private:
     sem_t m_sem;
 };
 class locker
-{
+{  //互斥锁
 public:
     locker()
     {
