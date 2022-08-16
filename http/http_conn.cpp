@@ -16,7 +16,7 @@ const char *error_500_form = "There was an unusual problem serving the request f
 
 const string http_conn::FILE_LOAD_PASSWD = "6666";
 
-locker m_lock;
+mutex m_lock;  // 原版本用于保证mysql操作线程安全(多余)，现用于保证多用户同时上传文件可能产生冲突问题
 static map<string, string> users;
 
 void http_conn::change_html() {
@@ -83,7 +83,6 @@ void http_conn::change_html() {
 }
 
 int http_conn::get_pic_num() {
-    //可能线程安全问题
 	int filenum = 0;
 	DIR* dir;
 	dir = opendir(file_root);
@@ -109,50 +108,8 @@ bool http_conn::add_file(const string& filename, const string& contents) {
         // printf("open fail\n");
         return false;
     }
-    // 通过 m_read_buf将上传文件多次写入相应路径文件
-
     int total_write = contents.size();
-    int have_write = 0;
-    int change_total = 0; //记录替换索引
-    int now_idx = 0;
-    while (have_write < total_write) {
-        memset(m_read_buf, '\0', READ_BUFFER_SIZE);
-        if (total_write - have_write >= READ_BUFFER_SIZE) { //写入2048个数据
-            for (int i = 0; i < READ_BUFFER_SIZE; ++i) {
-                if (change_total < m_changeids.size()) { //可能存在替换字符需要还原为\0
-                    if (now_idx + diff == m_changeids[change_total]) {
-                        change_total++;
-                        m_read_buf[i] = '\0';
-                    }
-                    else m_read_buf[i] = file_content[now_idx];
-                }
-                else {
-                    m_read_buf[i] = file_content[now_idx];
-                }
-                ++now_idx;
-            }
-            have_write += READ_BUFFER_SIZE;
-            out.write(m_read_buf, READ_BUFFER_SIZE);
-        }
-        else {
-            int last_to_write = total_write - have_write;
-            for (int i = 0; i < last_to_write; ++i) {
-                if (change_total < m_changeids.size()) { //可能存在替换字符需要还原为\0
-                    if (now_idx + diff == m_changeids[change_total]) {
-                        change_total++;
-                        m_read_buf[i] = '\0';
-                    }
-                    else m_read_buf[i] = file_content[now_idx];
-                }
-                else {
-                    m_read_buf[i] = file_content[now_idx];
-                }
-                ++now_idx;                
-            }
-            have_write += last_to_write;
-            out.write(m_read_buf, last_to_write);
-        }
-    }
+    out.write(file_content.c_str(), total_write);
     out.close();
     return true;
 }
@@ -277,7 +234,7 @@ void http_conn::init(int sockfd, const sockaddr_in &addr, char *root, char *froo
 //check_state默认为分析请求行状态
 void http_conn::init()
 {
-    m_changeids.clear();
+
     m_total_byte = 0;
     mysql = NULL;
     bytes_to_send = 0;
@@ -317,10 +274,10 @@ void http_conn::init()
 void http_conn::init1()
 {
 
-    m_start_line = 0;
-    m_checked_idx = 0;
+    // m_start_line = 0;
+    // m_checked_idx = 0;
     m_read_idx = 0;
-    m_write_idx = 0;
+    // m_write_idx = 0;
 
     memset(m_read_buf, '\0', READ_BUFFER_SIZE);
 }
@@ -330,12 +287,12 @@ void http_conn::init1()
 http_conn::LINE_STATUS http_conn::parse_line()
 {
     char temp;
-    for (; m_checked_idx < m_read_idx; ++m_checked_idx)
+    for (; m_checked_idx < file_content.size(); ++m_checked_idx)
     {
         temp = m_read_buf[m_checked_idx];
         if (temp == '\r')
         {
-            if ((m_checked_idx + 1) == m_read_idx)
+            if ((m_checked_idx + 1) == file_content.size())
                 return LINE_OPEN;
             else if (m_read_buf[m_checked_idx + 1] == '\n')
             {
@@ -373,47 +330,32 @@ bool http_conn::read_once()
         bytes_read = recv(m_sockfd, m_read_buf + m_read_idx, READ_BUFFER_SIZE - m_read_idx, 0);
         if (bytes_read > 0) m_total_byte += bytes_read;
         if (bytes_read > 0) m_read_idx += bytes_read;
-        int changeid = file_content.size();
         for (int i = 0; i < bytes_read; ++i) {
-            if (m_read_buf[i] == '\0') {
-                file_content.push_back('+');
-                m_changeids.push_back(changeid + i);
-            }
-            else file_content.push_back(m_read_buf[i]);
+            file_content.push_back(m_read_buf[i]);
         }
 
         if (bytes_read == 0)  //对方断开连接
         {
             return false;
         }
-        // else if (bytes_read == -1) {
-        //     if (errno == EAGAIN || errno == EWOULDBLOCK)  //重试
-        //         modfd(m_epollfd, m_sockfd, EPOLLIN, m_TRIGMode);  // !!!!
-        // }
 
         return true;
     }
     //ET读数据   针对上传文件情况功能未实现，需要将请求行，请求头char*处理模式更新为string处理模式
     else
     {
-        // int readtimes = 1;  //ET模式循环第一次读，先进行一次http逻辑处理，获取请求行，请求头部信息。
         while (true)
         {
             init1();
             bytes_read = recv(m_sockfd, m_read_buf + m_read_idx, READ_BUFFER_SIZE - m_read_idx, 0);
             if (bytes_read > 0) m_total_byte += bytes_read;
             if (bytes_read > 0) m_read_idx += bytes_read;
-            int changeid = file_content.size();
             for (int i = 0; i < bytes_read; ++i) {
-                if (m_read_buf[i] == '\0') {
-                    file_content.push_back('+');
-                    m_changeids.push_back(changeid + i);
-                }
-                else file_content.push_back(m_read_buf[i]);
+                file_content.push_back(m_read_buf[i]);
             }
             if (bytes_read == -1)
             {
-                if (errno == EAGAIN || errno == EWOULDBLOCK)  //读完再次尝试
+                if (errno == EAGAIN || errno == EWOULDBLOCK)  //读完再次尝试，EPOLLONESHOT由process函数判断是否重新绑定
                     break;
                 return false;
             }
@@ -421,8 +363,6 @@ bool http_conn::read_once()
             {
                 return false;
             }
-            // if (readtimes == 1) process();
-            // ++readtimes;
         }
         return true;
     }
@@ -474,8 +414,7 @@ http_conn::HTTP_CODE http_conn::parse_request_line(char *text)
     {
         cgi = 2; //上传文件标记
     }
-    // m_url = new char[strlen(m_url_t) + 1];
-    m_url = new char[strlen(m_url_t) + 20];  // 多开辟20长度，避免之后url跳转越界拷贝
+    m_url = new char[strlen(m_url_t) + 40];  // 多开辟40长度，避免之后url跳转越界拷贝
     strcpy(m_url, m_url_t);
     // printf("m_url:%s\n", m_url);
     if (!m_url || m_url[0] != '/')
@@ -540,7 +479,7 @@ http_conn::HTTP_CODE http_conn::parse_headers(char *text)
 //判断http请求是否被完整读入
 http_conn::HTTP_CODE http_conn::parse_content(char *text)
 {
-    if (m_read_idx >= (m_content_length + m_checked_idx))
+    if (file_content.size() >= (m_content_length + m_checked_idx))
     {
         text[m_content_length] = '\0';
         //POST请求中最后为输入的用户名和密码
@@ -565,7 +504,14 @@ http_conn::HTTP_CODE http_conn::process_read()
     LINE_STATUS line_status = LINE_OK;
     HTTP_CODE ret = NO_REQUEST;
     char *text = 0;
-
+    if (m_TRIGMode == 1) {
+        //ET模式特殊处理，ET模式先读完数据后处理，需要将请求行，请求头部重新输入处理buffer中
+        // printf("ET mode\n");
+        memset(m_read_buf, '\0', READ_BUFFER_SIZE);
+        string line_header = file_content.substr(0, READ_BUFFER_SIZE);
+        strcpy(m_read_buf, line_header.c_str());
+    }
+    // else printf("LT mode\n");
     while (m_check_state == CHECK_STATE_FORMDATA || (m_check_state == CHECK_STATE_CONTENT && line_status == LINE_OK) || ((line_status = parse_line()) == LINE_OK))
     {
         if (m_check_state != CHECK_STATE_FORMDATA) {
@@ -658,9 +604,10 @@ http_conn::HTTP_CODE http_conn::do_request()
             LOG_INFO("Register name: %s", name);
             if (users.find(name) == users.end())
             {
-                m_lock.lock();
+                //每条线程对于一条数据库连接应该不存在线程安全问题
+                // m_lock.lock();
                 int res = mysql_query(mysql, sql_insert);
-                m_lock.unlock();
+                // m_lock.unlock();
 
                 if (!res) {
                     strcpy(m_url, "/registersuccess.html");
@@ -705,7 +652,6 @@ http_conn::HTTP_CODE http_conn::do_request()
     //处理文件上传结果
     if (cgi == 2)
     {
-        m_pic_num = get_pic_num();
         // 获取文件名称
         size_t id1 = file_content.find("filename");
         id1 += 10; //文件名第一个字符
@@ -729,21 +675,26 @@ http_conn::HTTP_CODE http_conn::do_request()
             // 截取文件主体内容
             id1 = file_content.find("\r\n\r\n", id1);
             id1 += 4;
-            diff = id1; // 剔除了前diff个字符
+            // diff = id1; // 剔除了前diff个字符
             id2 = file_content.find(m_boundary, id1);
             // printf("oldcontent:\n%s\n", file_content.c_str());
-            file_content = file_content.substr(id1, id2 - id1 - 8);
+            file_content = file_content.substr(id1, id2 - id1 - 8); //剔除前后多余内容
             // printf("newcontent:\n%s\n", file_content.c_str());
 
             //执行指定业务功能
+            //  多用户同时提交文件可能出现线程不安全情况 下面一段，直接加互斥锁，消耗大。
+            m_lock.lock();
+            m_pic_num = get_pic_num();
             if (add_file(m_file_name, file_content)) {
                 change_html();
                 strcpy(m_url, "/loadsuccess.html");
             }
+            // 多用户同时提交文件可能出现线程不安全情况
             else {
                 //文件名冲突等情况
                 strcpy(m_url, "/loadfail.html");
             }
+            m_lock.unlock();
         }
     }
     strncpy(m_real_file + len, m_url, FILENAME_LEN - len - 1);

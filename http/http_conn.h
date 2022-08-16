@@ -24,6 +24,8 @@
 #include <dirent.h>
 #include <iomanip>
 
+#include <thread>
+#include <mutex>
 #include "../lock/locker.h"
 #include "../CGImysql/sql_connection_pool.h"
 #include "../timer/heap_timer.h"
@@ -133,9 +135,9 @@ public:
     int m_state;  //读为0, 写为1  Reactor工作模式
 
 private:
-    // 接受文件内容用string接收，存在被\0截断情况，用+替换\0
-    std::vector<int> m_changeids;  // \0替换为+的索引
-    int diff; //替换索引偏移量 用于还原原数据
+    // 接受文件内容用string接收，存在被\0截断情况，用+替换\0    多余操作已去除
+    // std::vector<int> m_changeids;  // \0替换为+的索引
+    // int diff; //替换索引偏移量 用于还原原数据
     int m_sockfd;
     sockaddr_in m_address;
     int m_total_byte;  //接收内容总字节数
