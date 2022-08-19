@@ -219,6 +219,8 @@ void http_conn::init(int sockfd, const sockaddr_in &addr, char *root, char *froo
 
     //当浏览器出现连接重置时，可能是网站根目录出错或http响应格式出错或者访问的文件中内容完全为空
     doc_root = root;
+    history_root = root;
+    history_root += "/history.txt";
     file_root = froot;
     m_TRIGMode = TRIGMode;
     m_close_log = close_log;
@@ -686,6 +688,13 @@ http_conn::HTTP_CODE http_conn::do_request()
             m_lock.lock();
             m_pic_num = get_pic_num();
             if (add_file(m_file_name, file_content)) {
+                //将标题记录进history.txt
+                string add_theme = m_theme;
+                add_theme.push_back('\n'); //添加换行符
+                ofstream history_out(history_root.c_str(), std::ios::app); //追加写入
+                history_out.write(add_theme.c_str(), add_theme.size());
+                history_out.close();
+    
                 change_html();
                 strcpy(m_url, "/loadsuccess.html");
             }

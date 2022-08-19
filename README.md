@@ -1,5 +1,4 @@
 
-
 基于C++轻量级Web服务器搭建自己的字画分享网站
 
 参考项目：TinyWebServer(https://github.com/qinguoyi/TinyWebServer)
@@ -21,14 +20,10 @@
 
 * [参考项目解读](https://mp.weixin.qq.com/mp/appmsgalbum?__biz=MzAxNzU2MzcwMw==&action=getalbum&album_id=1339230165934882817&scene=173&from_msgid=2649274431&from_itemidx=1&count=3&nolastread=1#wechat_redirect)
 
-
 目录
 -----
 
 | [更新日志](#更新日志) | [快速运行](#快速运行) | [个性化运行](#个性化运行) |
-
-
-
 
 更新日志
 -------
@@ -41,8 +36,8 @@
 - [x] 线程池更新为C++11 thread库版本。
 - [x] 优化文件上传功能，解决线程不安全问题。
 - [x] 添加支持文件上传功能的ET工作模式，减少了同一事件的触发次数(回调函数调用次数减少，开销变小)。
-- 待添加   1、存储已上传文件标题名称，用于服务器重启恢复原有内容
-- 待添加   2、......
+- [x] 添加文件存储历史标题记录，用于服务器重启恢复原有内容。
+- 待添加   ......
 
 
 快速运行
@@ -85,7 +80,7 @@
 * build
 
     ```C++
-    sh ./build.sh
+    sh ./build.sh  或者   make
     ```
 
 * 启动server
@@ -114,10 +109,10 @@
 * -d，选择运行方式，默认前台运行
 	* 0，前台运行
 	* 1，后台运行
-* -l，选择日志写入方式，默认同步写入
+* -l，选择日志写入方式，默认异步写入
 	* 0，同步写入
 	* 1，异步写入
-* -m，listenfd和connfd的模式组合，默认使用LT + LT读(LT ET均实现)
+* -m，listenfd和connfd的模式组合，默认使用LT + ET读(LT ET均实现)
 	* 0，表示使用LT + LT
 	* 1，表示使用LT + ET  
     * 2，表示使用ET + LT
@@ -132,7 +127,7 @@
 * -c，关闭日志，默认打开
 	* 0，打开日志
 	* 1，关闭日志
-* -a，选择反应堆模型，默认Proactor
+* -a，选择反应堆模型，默认Reactor
 	* 0，Proactor模型
 	* 1，Reactor模型
 

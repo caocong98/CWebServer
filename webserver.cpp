@@ -88,59 +88,76 @@ int WebServer::standard_filename() {
 
 void WebServer::resource_init() {
     // 默认标题 字画图片n   图片资源名 Pn
-    string text1("<li><a class='smoothScroll' href='/");
-    string filename(".html");
-    string text2("'><font size='6'>");
-    string theme_pic("字画图片");
-    string theme_mv("视频文件");
-    string text3("</font><br/></a></li>\n");
-
-    string s_file_root = m_root;
-    s_file_root.push_back('/');
-    string tmp1 = s_file_root + "template1.html";  //用于更新目录页
-    string tmp2 = s_file_root + "template2.html"; //用于更新目录页 图片类
-    string tmp3 = s_file_root + "template3.html"; //用于更新目录页 视频类
-    string update_file1 = s_file_root + "picture.html"; // 更新文件路径
-    // printf("route1:%s\n", tmp1.c_str());
-    // printf("route2:%s\n", update_file1.c_str());
-
-    ifstream ifs1(tmp1.c_str());
-	string content1( (istreambuf_iterator<char>(ifs1) ),
+    // 根据history.txt文件是否为空判断是否初始化默认资源
+    string history_root = m_root;
+    history_root += "/history.txt";
+    ifstream ifs(history_root.c_str());
+	string history_content( (istreambuf_iterator<char>(ifs) ),
 					 (istreambuf_iterator<char>() ) );
-	ifs1.close();
-    for (int i = 1; i <= m_file_num; ++i) {
-        int location = content1.find("mytag1");
-        string filename_now = "P" + to_string(i) + filename;  //新建文件名以及目录页更新内容
-        string file_end = m_file_name[i - 1].substr(m_file_name[i - 1].find_last_of('.'));//获取. + 文件后缀
-        string theme_now = file_end == ".mp4" ? theme_mv + to_string(i) : theme_pic + to_string(i);
-        string final = text1 + filename_now + text2 + theme_now + text3;
-        content1.insert(location - 1, final); //循环插入 m_file_num行
+    ifs.close();
+    if (history_content.empty()) { //无历史记录，初始化默认标题 字画图片n   图片资源名 Pn
 
+        string text1("<li><a class='smoothScroll' href='/");
+        string filename(".html");
+        string text2("'><font size='6'>");
+        string theme_pic("字画图片");
+        string theme_mv("视频文件");
+        string text3("</font><br/></a></li>\n");
 
-        // 新建 Pn.html
-        ifstream ifs2;
-        if (file_end == ".mp4") { //视频情况
-            ifs2.open(tmp3.c_str());
+        string s_file_root = m_root;
+        s_file_root.push_back('/');
+        string tmp1 = s_file_root + "template1.html";  //用于更新目录页
+        string tmp2 = s_file_root + "template2.html"; //用于更新目录页 图片类
+        string tmp3 = s_file_root + "template3.html"; //用于更新目录页 视频类
+        string update_file1 = s_file_root + "picture.html"; // 更新文件路径
+        // printf("route1:%s\n", tmp1.c_str());
+        // printf("route2:%s\n", update_file1.c_str());
+
+        ifstream ifs1(tmp1.c_str());
+        string content1( (istreambuf_iterator<char>(ifs1) ),
+                        (istreambuf_iterator<char>() ) );
+        ifs1.close();
+        for (int i = 1; i <= m_file_num; ++i) {
+            int location = content1.find("mytag1");
+            string filename_now = "P" + to_string(i) + filename;  //新建文件名以及目录页更新内容
+            string file_end = m_file_name[i - 1].substr(m_file_name[i - 1].find_last_of('.'));//获取. + 文件后缀
+            string theme_now = file_end == ".mp4" ? theme_mv + to_string(i) : theme_pic + to_string(i);
+            string final = text1 + filename_now + text2 + theme_now + text3;
+            content1.insert(location - 1, final); //循环插入 m_file_num行
+
+            //主题名 插入history.
+            history_content += theme_now + "\n"; 
+            // 新建 Pn.html
+            ifstream ifs2;
+            if (file_end == ".mp4") { //视频情况
+                ifs2.open(tmp3.c_str());
+            }
+            else {
+                ifs2.open(tmp2.c_str());  // 图片情况
+            }
+            string content2( (istreambuf_iterator<char>(ifs2) ),
+                            (istreambuf_iterator<char>() ) );  
+            ifs2.close();      
+            location = content2.find("theme");
+            content2.insert(location + 7, theme_now);
+            location = content2.find("images/picture/");
+            // printf("file_name:%s\n", m_file_name[i].c_str());
+            content2.insert(location + 15, m_file_name[i - 1]);
+            string Pn = s_file_root + filename_now;
+            ofstream out(Pn.c_str(), std::ios::out);
+            out.write(content2.c_str(), content2.size()); // 最终更新 picture.html
+            out.close();        
         }
-        else {
-            ifs2.open(tmp2.c_str());  // 图片情况
-        }
-        string content2( (istreambuf_iterator<char>(ifs2) ),
-                        (istreambuf_iterator<char>() ) );  
-        ifs2.close();      
-        location = content2.find("theme");
-        content2.insert(location + 7, theme_now);
-        location = content2.find("images/picture/");
-        // printf("file_name:%s\n", m_file_name[i].c_str());
-        content2.insert(location + 15, m_file_name[i - 1]);
-        string Pn = s_file_root + filename_now;
-        ofstream out(Pn.c_str(), std::ios::out);
-        out.write(content2.c_str(), content2.size()); // 最终更新 picture.html
-        out.close();        
+        ofstream history_out(history_root.c_str(), std::ios::out);
+        history_out.write(history_content.c_str(), history_content.size());
+        history_out.close();
+        ofstream out(update_file1.c_str(), std::ios::out);
+        out.write(content1.c_str(), content1.size()); // 最终更新 picture.html
+        out.close();
     }
-    ofstream out(update_file1.c_str(), std::ios::out);
-    out.write(content1.c_str(), content1.size()); // 最终更新 picture.html
-    out.close();
+    else {
+        //存在历史记录则无需重新初始化
+    }
 }
 
 void WebServer::trig_mode()

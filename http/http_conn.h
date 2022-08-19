@@ -181,6 +181,7 @@ private:
     int bytes_have_send;  // 已发送字节数
     char *doc_root;  //root资源绝对路径
     char *file_root; //存放上传文件绝对路径
+    string history_root;  //存储标题文件
 
     string m_file_name; //上传文件名称
     string file_content;
