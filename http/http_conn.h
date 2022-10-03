@@ -204,6 +204,7 @@ public:
 
 private: 
     int m_pic_num;  //图片总数  统一图片名称为 Pn.png ...
+
 };
 
 #endif

@@ -229,6 +229,7 @@ void http_conn::init(int sockfd, const sockaddr_in &addr, char *root, char *froo
     strcpy(sql_passwd, passwd.c_str());
     strcpy(sql_name, sqlname.c_str());
 
+
     init();
 }
 
@@ -416,6 +417,7 @@ http_conn::HTTP_CODE http_conn::parse_request_line(char *text)
     {
         cgi = 2; //上传文件标记
     }
+
     m_url = new char[strlen(m_url_t) + 40];  // 多开辟40长度，避免之后url跳转越界拷贝
     strcpy(m_url, m_url_t);
     // printf("m_url:%s\n", m_url);
@@ -708,14 +710,21 @@ http_conn::HTTP_CODE http_conn::do_request()
     }
     strncpy(m_real_file + len, m_url, FILENAME_LEN - len - 1);
 
-    if (stat(m_real_file, &m_file_stat) < 0) {
-        // 访问不存在资源 进入404界面
-        string f404 = doc_root;
-        f404 += "/404.html";
-        strcpy(m_real_file, f404.c_str());
-        // printf("%s\n", m_real_file);
-        stat(m_real_file, &m_file_stat);
-        // return NO_RESOURCE;
+    string temp404 = m_url;
+    while (stat(m_real_file, &m_file_stat) < 0) {
+        // 访问不存在资源 进入404界面  处理多个/ 404界面css等资源访问不到情况
+        auto nextid = temp404.find('/', 1);
+        if (nextid == -1) {
+            string f404 = doc_root;
+            f404 += "/404.html";
+            strcpy(m_real_file, f404.c_str());
+        }
+        else {
+            temp404 = temp404.substr(nextid);
+            string f404 = doc_root;
+            f404 += temp404;
+            strcpy(m_real_file, f404.c_str());
+        }
     }
 
     if (!(m_file_stat.st_mode & S_IROTH))
