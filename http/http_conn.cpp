@@ -344,7 +344,7 @@ bool http_conn::read_once()
 
         return true;
     }
-    //ET读数据   针对上传文件情况功能未实现，需要将请求行，请求头char*处理模式更新为string处理模式
+    //ET读数据   
     else
     {
         while (true)
@@ -417,13 +417,21 @@ http_conn::HTTP_CODE http_conn::parse_request_line(char *text)
     {
         cgi = 2; //上传文件标记
     }
+    // 添加非法url判断
+    // 1、长度大于200(根据实际情况)  2、存在连续/  3、长度大于1末尾为/，末尾去除
+    string url_judge = m_url_t;
+    if (strlen(m_url_t) > 200) return BAD_REQUEST; // 情况1
+    if (url_judge.find("//") != -1) return BAD_REQUEST; // 情况2；
+    if (url_judge.size() > 1 && url_judge.back() == '/') { // 情况3；
+        *(m_url_t + strlen(m_url_t) - 1) = '\0';
+    }
 
-    m_url = new char[strlen(m_url_t) + 40];  // 多开辟40长度，避免之后url跳转越界拷贝
+    m_url = new char[strlen(m_url_t) + 40];  // 多开辟40长度，避免之后url跳转越界拷贝(do_request函数内)
     strcpy(m_url, m_url_t);
     // printf("m_url:%s\n", m_url);
     if (!m_url || m_url[0] != '/')
         return BAD_REQUEST;
-    //当url为/时，显示判断界面
+    //当url为/时，显示首页
     if (strlen(m_url) == 1)
         strcat(m_url, "index.html");
     m_check_state = CHECK_STATE_HEADER;
@@ -711,6 +719,7 @@ http_conn::HTTP_CODE http_conn::do_request()
     strncpy(m_real_file + len, m_url, FILENAME_LEN - len - 1);
 
     string temp404 = m_url;
+
     while (stat(m_real_file, &m_file_stat) < 0) {
         // 访问不存在资源 进入404界面  处理多个/ 404界面css等资源访问不到情况
         auto nextid = temp404.find('/', 1);

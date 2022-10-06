@@ -194,9 +194,9 @@ void WebServer::log_write()
     {
         //初始化日志
         if (1 == m_log_write)
-            Log::get_instance()->init("./ServerLog", m_close_log, 2000, 800000, 800);
+            Log::get_instance()->init("./LogFiles/ServerLog", m_close_log, 2000, 800000, 800);
         else
-            Log::get_instance()->init("./ServerLog", m_close_log, 2000, 800000, 0);
+            Log::get_instance()->init("./LogFiles/ServerLog", m_close_log, 2000, 800000, 0);
     }
 }
 
@@ -402,7 +402,7 @@ bool WebServer::dealclinetdata()
     return true;
 }
 
-bool WebServer::    dealwithsignal(bool &timeout, bool &stop_server)
+bool WebServer::dealwithsignal(bool &timeout, bool &stop_server)
 {
     int ret = 0;
     int sig;
@@ -595,7 +595,7 @@ void WebServer::eventLoop()
         {
             utils.timer_handler();
 
-            LOG_INFO("%s", "timer tick");
+            // LOG_INFO("%s", "timer tick");
             // printf("connect num:%d\n", http_conn::m_user_count);
 
             timeout = false;
