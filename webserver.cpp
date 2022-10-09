@@ -342,7 +342,7 @@ void WebServer::adjust_timer(util_timer *timer)
     timer->expire = cur + 3 * TIMESLOT;
     utils.m_timer_lst.adjust_timer(timer);
 
-    LOG_INFO("%s", "adjust timer once");
+    // LOG_INFO("%s", "adjust timer once");
     // printf("Adjust timer once %s %d\n", inet_ntoa(timer->user_data->address.sin_addr), timer->user_data->sockfd);
 }
 
@@ -354,7 +354,7 @@ void WebServer::deal_timer(util_timer *timer, int sockfd)
         utils.m_timer_lst.del_timer(timer);
     }
 
-    LOG_INFO("close fd %d", users_timer[sockfd].sockfd);
+    LOG_INFO("close fd %d, IP is %s", users_timer[sockfd].sockfd, inet_ntoa(users[sockfd].get_address()->sin_addr));
     // printf("close fd %d", users_timer[sockfd].sockfd);
 }
 
@@ -454,6 +454,7 @@ void WebServer::dealwithread(int sockfd)
         users[sockfd].m_state = 0;
         m_pool->AddTask(std::bind(&WebServer::Run, this, users + sockfd));
 
+        LOG_INFO("deal with the client(%s)", inet_ntoa(users[sockfd].get_address()->sin_addr));
         while (true)
         {
             if (1 == users[sockfd].improv)
@@ -504,7 +505,7 @@ void WebServer::dealwithwrite(int sockfd)
 
         users[sockfd].m_state = 1;
         m_pool->AddTask(std::bind(&WebServer::Run, this, users + sockfd));
-
+        LOG_INFO("send data to the client(%s)", inet_ntoa(users[sockfd].get_address()->sin_addr));
         while (true)
         {
             if (1 == users[sockfd].improv)

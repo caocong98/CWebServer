@@ -577,10 +577,11 @@ http_conn::HTTP_CODE http_conn::do_request()
 {
     strcpy(m_real_file, doc_root);
     int len = strlen(doc_root);
-    const char *p = strrchr(m_url, '/');
+    string url = m_url;
+    url = url.substr(url.find_last_of('/') + 1);
 
     //处理注册登陆
-    if ((*(p + 1) == '2' || *(p + 1) == '3') && m_method == POST)
+    if ((url == "2CGISQL.cgi" || url == "3CGISQL.cgi") && m_method == POST)
     {
 
         char *m_url_real = (char *)malloc(sizeof(char) * 200);
@@ -593,16 +594,16 @@ http_conn::HTTP_CODE http_conn::do_request()
         //user=123&passwd=123
         char name[100], password[100];
         int i;
-        for (i = 5; m_string[i] != '&'; ++i)
+        for (i = 5; i < m_string.size() && m_string[i] != '&'; ++i)
             name[i - 5] = m_string[i];
         name[i - 5] = '\0';
 
         int j = 0;
-        for (i = i + 10; m_string[i] != '\0'; ++i, ++j)
+        for (i = i + 10; i < m_string.size(); ++i, ++j)
             password[j] = m_string[i];
         password[j] = '\0';
 
-        if (*(p + 1) == '3')
+        if (url == "3CGISQL.cgi")
         {
             //如果是注册，先检测数据库中是否有重名的
             //没有重名的，进行增加数据
@@ -633,7 +634,7 @@ http_conn::HTTP_CODE http_conn::do_request()
         }
         //如果是登录，直接判断
         //若浏览器端输入的用户名和密码在表中可以查找到，返回1，否则返回0
-        else if (*(p + 1) == '2')
+        else if (url == "2CGISQL.cgi")
         {
             if (users.find(name) != users.end() && users[name] == password)
                 strcpy(m_url, "/picture.html");
