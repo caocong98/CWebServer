@@ -1,14 +1,7 @@
-
 基于C++轻量级Web服务器搭建自己的字画分享网站
 
 参考项目：TinyWebServer(https://github.com/qinguoyi/TinyWebServer)
 参考书籍：Linux高性能服务器编程，游双著.
-
-修改实现：
-1. 根据字画网站需求修改http相关解析逻辑
-2. 根据需求添加相应前端界面
-3. 添加了基于http formdata文件上传(字画图片及MP4视频文件)的后端解析功能，后端解析后自动生成相关前端界面供用户访问查看，达到网站的动态交互效果。
-4. 将基于升序链表的定时器更新为基于小根堆的定时器，优化了定时器效率；
 
 参考项目要点：
 * 使用 **线程池 + 非阻塞socket + epoll(针对上传文件需求使用Proactor/Reactor + LT方案) + 事件处理(Reactor和Proactor均实现)** 的并发模型
@@ -17,8 +10,6 @@
 * 实现**同步/异步日志系统**，记录服务器运行状态
 * 经Webbench压力测试可以实现**上万的并发连接**数据交换
 ===============
-
-* [参考项目解读](https://mp.weixin.qq.com/mp/appmsgalbum?__biz=MzAxNzU2MzcwMw==&action=getalbum&album_id=1339230165934882817&scene=173&from_msgid=2649274431&from_itemidx=1&count=3&nolastread=1#wechat_redirect)
 
 目录
 -----
@@ -38,8 +29,15 @@
 - [x] 添加支持文件上传功能的ET工作模式，减少了同一事件的触发次数(回调函数调用次数减少，开销变小)。
 - [x] 添加文件存储历史标题记录，用于服务器重启恢复原有内容。
 - [x] 增加非法异常url地址判断解决字符串越界问题(www.bc.top/A/A, www.bc.top/// 等).
-- 待添加   ......
+- [x] 添加Cookie,Session机制，实现Http状态化(记录用户状态， 免登陆，增加不同用户权限达到真正的动态交互)。
+- 待添加   1、资源分页显示    2、删除文件功能    3、点赞功能
 
+
+问题清单：
+1、网络IO, EPOLLONESHOT， string += 字符串截断。
+2、Mysql连接池默认连接时间8小时中断。
+3、http解析C风格字符串解析内存越界问题。 (gdb + core dump)
+4、Cookie传输中文编码问题。 (url 及  utf8 转换)
 
 快速运行
 ------------
@@ -62,12 +60,16 @@
     USE yourdb;
     CREATE TABLE user(
         username char(50) NULL,
-        passwd char(50) NULL
+        passwd char(50) NULL,
+        level smallint default 0   
     )ENGINE=InnoDB;
-
+    // level 0 普通用户， level  1 VIP    ,  level  2  SVIP
     // 添加数据
-    INSERT INTO user(username, passwd) VALUES('name', 'passwd');
+    INSERT INTO user(username, passwd, level) VALUES('name', 'passwd', 0);
     ```
+    //修改会员权限
+    update user set level=1 where username='CC';
+    update user set level=2 where username='CC';
 
 * 修改main.cpp中的数据库初始化信息
 
@@ -155,7 +157,5 @@
 - [t] 时间
 - [2] http 1.1
 
-问题清单：
-1、网络IO, EPOLLONESHOT， string += 字符串截断。
-2、Mysql连接池默认连接时间8小时中断。
-3、http解析C风格字符串解析内存越界问题。 (gdb + core dump)
+
+* [参考项目解读](https://mp.weixin.qq.com/mp/appmsgalbum?__biz=MzAxNzU2MzcwMw==&action=getalbum&album_id=1339230165934882817&scene=173&from_msgid=2649274431&from_itemidx=1&count=3&nolastread=1#wechat_redirect)
