@@ -1,0 +1,63 @@
+//后端更新生成完整html
+mytag1:更新目录    mytag2:用户显示区模板   mytag3：字画集跳转  mytag4:作品上传跳转
+
+
+//字画集跳转
+<li><a class='smoothScroll' href='/login.html'><font size='6'>字画集</font><br/></a></li>
+<li><a class='smoothScroll' href='/page1.html'><font size='6'>字画集</font><br/></a></li>
+
+//用户显示区
+<li><a class='smoothScroll' href='/register.html'><font size='6'>注册</font><br/></a></li>
+<li><a class='smoothScroll' href='/login.html'><font size='6'>登录</font><br/></a></li>
+
+<li><a class='smoothScroll'; style='color:#ff0000'><font size='3' >VIP用户:    +Name+  </font><br/></a></li>
+<li><a class='smoothScroll' href='/logout.html'; style='color:#000000'><font size='3'>用户注销</font><br/></a></li>
+
+<li><a class='smoothScroll'; style='color:#ff0000'><font size='3' >SVIP用户:    +Name+  </font><br/></a></li>
+<li><a class='smoothScroll' href='/logout.html'; style='color:#000000'><font size='3'>用户注销</font><br/></a></li>
+
+<li><a class='smoothScroll'; style='color:#000000'><font size='3' >普通用户:    +Name+  </font><br/></a></li>
+<li><a class='smoothScroll' href='/logout.html'; style='color:#000000'><font size='3'>用户注销</font><br/></a></li>
+
+<!-- 文件上传部分 -->
+<li><a class='smoothScroll' href='/fileload.html'><font size='6'>作品上传</font><br/></a></li>
+<li><a class='smoothScroll' href='/fileloadverify.html'><font size='6'>作品上传</font><br/></a></li>
+
+<!-- //前后翻页
+<a href="自定义"><button id='pagepre'>上一页</button></a>
+<a href="自定义"><button id='pageafter'>下一页</button></a> -->
+<!--服务端修改PAGETAG 1、pageshow:第 1 / 30 页 2、maxpage: 目录最大页数-->
+<section id="pagecontrol">
+    <form action="/PAGEJUMP.cgi" method="post" align="center">
+        <div style="font-weight: bold;">pageshow</div>
+        <input style="font-weight: bold; width: 65px;" type="number" name="pageID" min=1 max=maxpage required="required" placeholder="页码"/>
+        <input type="submit" style="font-weight: bold;" value="跳转">
+    </form>
+</section>
+
+
+//删除文件
+<!-- 修改删除部分接口 nowID，当前文件索引-->
+<section id="change">
+    <form action="/UPDATE.cgi" method="post" align="center" onsubmit="Alert('修改中，请稍等......',20000)">
+            <input type="hidden" name="UPDATE" value="nowID" >
+            <input style="font-weight: bold; margin-left:130px; width: 140px;" type="text" name="newtheme" required="required"/ placeholder="输入新的标题名称"><br>
+            <input type="submit" style="font-weight: bold; margin-top: 3px; margin-left: 165px;" value="修改当前标题" onclick="return clicked('确认修改?')">
+    </form>
+    <form action="/DELETE.cgi" method="post" align="center" onsubmit="Alert('删除中，请稍等......',20000)">
+            <input type="hidden" name="DELETE" value="nowID" >
+            <input type="submit" style="font-weight: bold; margin-top: 10px; margin-left: 165px;" value="删除当前资源" onclick="return clicked('确认删除?')">
+    </form>
+</section>
+
+//修改删除结果
+<a href="/pageid.html"><button id='jumpback'>返回目录页</button></a>
+
+//目录文件显示
+<li><a class='smoothScroll' href='/P1.html'><font size='6'>字画图片1</font><br/></a></li>
+
+//图片视频文件请求
+//图片
+<img style='width: 40vw;' src='images/picture/自定义文件地址' alt='pic'/>
+//视频
+<source src='images/picture/自定义文件地址' type='video/mp4'>
