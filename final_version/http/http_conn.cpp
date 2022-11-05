@@ -422,13 +422,15 @@ http_conn::HTTP_CODE http_conn::parse_request_line(char *text)
     if (strncasecmp(m_url_t, "http://", 7) == 0)
     {
         m_url_t += 7;
-        m_url_t = strchr(m_url_t, '/');
+        m_url_t = strchr(m_url_t, '/'); //strchr未查询到符合条件地址返回空指针，造成之后段错误
+        if (!m_url_t) return BAD_REQUEST;  //不符合即为非法请求 例:http://eth0.me?Z74225174970Q1  没有/
     }
 
     if (strncasecmp(m_url_t, "https://", 8) == 0)
     {
         m_url_t += 8;
         m_url_t = strchr(m_url_t, '/');
+        if (!m_url_t) return BAD_REQUEST;
     }
     if (strncasecmp(m_url_t, "/fileVerify.action", 18) == 0)
     {
@@ -456,6 +458,7 @@ http_conn::HTTP_CODE http_conn::parse_request_line(char *text)
     string url_judge = m_url_t;
     if (strlen(m_url_t) > 200) return BAD_REQUEST; // 情况1
     if (url_judge.find("//") != string::npos) return BAD_REQUEST; // 情况2；
+    if (url_judge.find("/") == string::npos) return BAD_REQUEST; //针对非法请求 例：GET eth0.me?Z74225174970Q1 HTTP/1.1
     if (url_judge.size() > 1 && url_judge.back() == '/') { // 情况3；
         *(m_url_t + strlen(m_url_t) - 1) = '\0';
     }
@@ -861,7 +864,7 @@ http_conn::HTTP_CODE http_conn::do_request()
             now_page = stoi(temp_page);
             int totalpage = web_resources.size() / onepage_num;
             if (web_resources.size() % onepage_num) ++totalpage;
-            if (now_page <= totalpage || totalpage == 0) exist_judge = 0; //0页默认为第一页
+            if (now_page <= totalpage || (now_page == 1 && totalpage == 0)) exist_judge = 0; //0页默认为第一页
             else now_page = -1;
         }
     }
