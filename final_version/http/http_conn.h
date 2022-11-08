@@ -43,6 +43,17 @@ public:
     static const int WRITE_BUFFER_SIZE = 1024;
     static const string FILE_LOAD_PASSWD1;  // vip
     static const string FILE_LOAD_PASSWD2;  // svip
+    enum CGI { //处理情况标记  1:权限升级  2:文件上传   3:文件删除  4:标题修改  5：目录页跳转  6：登录  7：注册  8注销  
+        NONE_STATE = 0,
+        FILE_VERIFY,
+        FILE_UPLOAD,
+        FILE_DELETE,
+        THEME_CHANGE,
+        PAGE_JUMP,
+        LOGIN,
+        REGISTER,
+        LOG_OUT
+    };
     enum METHOD
     {
         GET = 0,
@@ -184,7 +195,7 @@ private:
     struct iovec m_iv[2];  
     // io向量块数，应用于聚集写 writev
     int m_iv_count;
-    int cgi;        //处理情况标记  1:权限升级  2:文件上传   3:文件删除  4:标题修改  5：目录页跳转
+    CGI m_cgi;        //处理情况标记  0:权限升级  1:文件上传   2:文件删除  3:标题修改  4：目录页跳转
     bool exist_judge;  //pageID.html PID.html临时构造对象不用判断磁盘是否存在 设置为0
     string m_string; //存储post表单数据  这里为登陆或注册的账号和密码
     int bytes_to_send;  // 剩余发送字节数

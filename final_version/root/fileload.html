@@ -1,6 +1,6 @@
 <!--
  * @Author       : cc
- * @Date         : 2022-11-01
+ * @Date         : 2022-06-23
  * @copyleft GPL 2.0
 -->
 <!DOCTYPE html>
@@ -62,7 +62,7 @@
                               data-wow-delay="0.2s" alt="about image">
                     </div>
                     <div class="col-md-2 col-sm-3">
-                         <form action="fileUpload.action" method="post" enctype="multipart/form-data" onsubmit="Alert('上传中，请稍等......',20000)">
+                         <form action="fileUpload.cgi" method="post" enctype="multipart/form-data" onsubmit="Alert('上传中，请稍等......',20000)">
                               <font size="3"><h3><strong style="color:black">字画文件: </strong></h3><input style="font-weight: bold;" type="file" name="sendfile" accept="image/png, image/jpeg, image/jpg, audio/mp4, video/mp4" id="file" required="required" onchange="fileChange(this)"/></font>
                               <font size="3"><h3><strong style="color:black">字画标题: </strong></h3><input style="font-weight: bold;" type="text" name="theme" required="required"/><br></font>
                               <font size="3"><input style="font-weight: bold;margin-top: 10px;" type="submit" name="submit" value="上传" onclick="return clicked('确认上传?')"/></font>

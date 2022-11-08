@@ -269,7 +269,6 @@ void http_conn::init()
     m_checked_idx = 0;
     m_read_idx = 0;
     m_write_idx = 0;
-    cgi = 0;
     m_state = 0;
     timer_flag = 0;
     improv = 0;
@@ -292,6 +291,7 @@ void http_conn::init()
     final_url.clear();
     create_html.clear();
     m_level = LOGOUT;
+    m_cgi = NONE_STATE;
 
     memset(m_read_buf, '\0', READ_BUFFER_SIZE);
     memset(m_write_buf, '\0', WRITE_BUFFER_SIZE);
@@ -432,25 +432,37 @@ http_conn::HTTP_CODE http_conn::parse_request_line(char *text)
         m_url_t = strchr(m_url_t, '/');
         if (!m_url_t) return BAD_REQUEST;
     }
-    if (strncasecmp(m_url_t, "/fileVerify.action", 18) == 0)
+    if (strncasecmp(m_url_t, "/fileVerify.cgi", 18) == 0  && m_method == POST)
     {
-        cgi = 1; //上传文件密码验证
+        m_cgi = FILE_VERIFY; //上传文件密码验证
     }
-    else if (strncasecmp(m_url_t, "/fileUpload.action", 18) == 0)
+    else if (strncasecmp(m_url_t, "/fileUpload.cgi", 18) == 0 && m_method == POST)
     {
-        cgi = 2; //上传文件标记
+        m_cgi = FILE_UPLOAD; //上传文件标记
     }
-    else if (strncasecmp(m_url_t, "/DELETE.cgi", 11) == 0)
+    else if (strncasecmp(m_url_t, "/DELETE.cgi", 11) == 0 && m_method == POST)
     {
-        cgi = 3; //删除文件标记
+        m_cgi = FILE_DELETE; //删除文件标记
     }
-    else if (strncasecmp(m_url_t, "/UPDATE.cgi", 11) == 0)
+    else if (strncasecmp(m_url_t, "/UPDATE.cgi", 11) == 0 && m_method == POST)
     {
-        cgi = 4; //标题修改标记
+        m_cgi = THEME_CHANGE; //标题修改标记
     }
-    else if (strncasecmp(m_url_t, "/PAGEJUMP.cgi", 13) == 0)
+    else if (strncasecmp(m_url_t, "/PAGEJUMP.cgi", 13) == 0 && m_method == POST)
     {
-        cgi = 5; //页码跳转标记
+        m_cgi = PAGE_JUMP; //页码跳转标记
+    }
+    else if (strncasecmp(m_url_t, "/LOGIN.cgi", 10) == 0 && m_method == POST)
+    {
+        m_cgi = LOGIN;
+    }
+    else if (strncasecmp(m_url_t, "/REGISTER.cgi", 13) == 0 && m_method == POST)
+    {
+        m_cgi = REGISTER;
+    }
+    else if (strncasecmp(m_url_t, "/logout.html", 12) == 0)
+    {
+        m_cgi = LOG_OUT;
     }
     
     // 添加非法url判断
@@ -482,7 +494,7 @@ http_conn::HTTP_CODE http_conn::parse_headers(char *text)
     {
         if (m_content_length != 0)
         {
-            if (cgi == 2) {
+            if (m_cgi == FILE_UPLOAD) {
                 m_check_state = CHECK_STATE_FORMDATA;
                 return NO_REQUEST;
             }
@@ -629,11 +641,9 @@ http_conn::HTTP_CODE http_conn::do_request()
 {
     strcpy(m_real_file, doc_root);
     int len = strlen(doc_root);
-    string url = m_url;
-    url = url.substr(url.find_last_of('/') + 1);
 
     //处理注册登陆
-    if ((url == "2CGISQL.cgi" || url == "3CGISQL.cgi") && m_method == POST)
+    if (m_cgi == LOGIN || m_cgi == REGISTER)
     {
 
         char *m_url_real = (char *)malloc(sizeof(char) * 200);
@@ -644,6 +654,7 @@ http_conn::HTTP_CODE http_conn::do_request()
 
         //将用户名和密码提取出来
         //user=123&passwd=123
+        if (m_string.empty()) return BAD_REQUEST;
         char name[100], password[100];
         int i;
         for (i = 5; i < m_string.size() && m_string[i] != '&'; ++i)
@@ -655,7 +666,7 @@ http_conn::HTTP_CODE http_conn::do_request()
             password[j] = m_string[i];
         password[j] = '\0';
 
-        if (url == "3CGISQL.cgi")
+        if (m_cgi == REGISTER)
         {
             //如果是注册，先检测数据库中是否有重名的
             //没有重名的，进行增加数据
@@ -686,7 +697,7 @@ http_conn::HTTP_CODE http_conn::do_request()
         }
         //如果是登录，直接判断
         //若浏览器端输入的用户名和密码在表中可以查找到，返回1，否则返回0
-        else if (url == "2CGISQL.cgi")
+        else if (m_cgi == LOGIN)
         {
             if (users.find(name) != users.end() && users[name] == password) {
                 strcpy(m_url, "/page1.html");
@@ -702,21 +713,18 @@ http_conn::HTTP_CODE http_conn::do_request()
                 strcpy(m_url, "/logError.html");
         }
     }
-
-    if (url == "logout.html") { //注销处理
+    else if (m_cgi == LOG_OUT) { //注销处理
         session_users.erase(now_cookie);
         m_level = LOGOUT;
     }
-
     // 验证文件上传密码
-    if (cgi == 1) {
+    else if (m_cgi == FILE_VERIFY) {
         //获取上传密码
-        // printf("%s\n\n", file_content.c_str());
         size_t ind = file_content.find("rootpasswd");
+        if (ind == -1) return BAD_REQUEST;
         ind += 15;
         while (file_content[ind] != '\r') {
             m_passwd.push_back(file_content[ind++]);
-            // printf("%s\n", m_passwd.c_str());
         }
         //验证  //提升用户权限 同步更新数据库  及本地缓存
         if (m_passwd == FILE_LOAD_PASSWD1) {
@@ -755,12 +763,12 @@ http_conn::HTTP_CODE http_conn::do_request()
             strcpy(m_url, "/fileloadverifyfail.html");
         }
     }
-
     //处理文件上传结果
-    else if (cgi == 2)
+    else if (m_cgi == FILE_UPLOAD)
     {
         // 获取文件名称
         size_t id1 = file_content.find("filename");
+        if (id1 == -1) return BAD_REQUEST;
         id1 += 10; //文件名第一个字符
         while (file_content[id1] != '"') {
             m_file_name.push_back(file_content[id1++]);
@@ -777,16 +785,12 @@ http_conn::HTTP_CODE http_conn::do_request()
                     m_theme.push_back(file_content[id2++]);
                 }
             }
-            // if (m_theme.size() == 0) printf("Empty theme.\n");
-            // else printf("The theme is : %s\n", m_theme.c_str());
+            else return BAD_REQUEST;
             // 截取文件主体内容
             id1 = file_content.find("\r\n\r\n", id1);
             id1 += 4;
-            // diff = id1; // 剔除了前diff个字符
             id2 = file_content.find(m_boundary, id1);
-            // printf("oldcontent:\n%s\n", file_content.c_str());
             file_content = file_content.substr(id1, id2 - id1 - 8); //剔除前后多余内容
-            // printf("newcontent:\n%s\n", file_content.c_str());
 
             //执行指定业务功能
             //  多用户同时提交文件可能出现线程不安全情况 下面一段，直接加互斥锁，消耗大。
@@ -812,8 +816,10 @@ http_conn::HTTP_CODE http_conn::do_request()
             m_lock.unlock();
         }
     }
-    else if (cgi == 3) {  //删除  2、DELETE=delID   4、pageID=ID
-        c_id = stoi(m_string.substr(m_string.find("DELETE=") + 7));
+    else if (m_cgi == FILE_DELETE) {  //删除  2、DELETE=delID   4、pageID=ID
+        int id_temp = m_string.find("DELETE=");
+        if (id_temp == -1) return BAD_REQUEST;
+        c_id = stoi(m_string.substr(id_temp + 7));
         if (delete_file(c_id)) {
             strcpy(m_url, "/deletesuccess.html");
         }
@@ -821,7 +827,7 @@ http_conn::HTTP_CODE http_conn::do_request()
             strcpy(m_url, "/deletefail.html");
         }
     }
-    else if (cgi == 4) {  //更新标题  UPDATE=ID&newtheme=xxx
+    else if (m_cgi == THEME_CHANGE) {  //更新标题  UPDATE=ID&newtheme=xxx
         int idx = 7;
         string idtemp("");
         while (m_string[idx] != '&') {
@@ -837,14 +843,14 @@ http_conn::HTTP_CODE http_conn::do_request()
             strcpy(m_url, "/updatefail.html");
         }
     }
-    else if (cgi == 5) { //目录页跳转  pageID=ID
+    else if (m_cgi == PAGE_JUMP) { //目录页跳转  pageID=ID
         now_page = stoi(m_string.substr(m_string.find("pageID=") + 7));
         string n_url = "/page" + to_string(now_page) + ".html";
         strcpy(m_url, n_url.c_str());
     }
 
     //404判断   pageID.html  和  PID.html 404提前判断
-    url = m_url;
+    string url = m_url;
     url = url.substr(url.find_last_of('/') + 1);
     if (now_page != -1) {  //跳转 页面html生成 不用判断html文件是否存在
         exist_judge = 0;
@@ -1050,7 +1056,7 @@ http_conn::HTTP_CODE http_conn::do_request()
             m_file_address = const_cast<char*>(create_html.c_str());
             m_file_stat.st_size = create_html.size();      
         }
-        else if (cgi == 3 || cgi == 4) { //删除文件 及 更新标题 跳转
+        else if (m_cgi == FILE_DELETE || m_cgi == THEME_CHANGE) { //删除文件 及 更新标题 跳转
             ifstream ifs1(final_url.c_str());
             string content1( (istreambuf_iterator<char>(ifs1) ),
                             (istreambuf_iterator<char>() ) );
@@ -1140,7 +1146,7 @@ http_conn::HTTP_CODE http_conn::do_request()
                 final2 = "<li><a class='smoothScroll' href='/page1.html'><font size='6'>字画集</font><br/></a></li>\n";
             }
             //上传文件成功跳转对应页码(末尾添加，即最后一页)
-            if (cgi == 2 && final_url.find("loadsuccess.html") != -1 ) {
+            if (m_cgi == FILE_UPLOAD && final_url.find("loadsuccess.html") != -1 ) {
                 int totalpage = web_resources.size() / onepage_num;
                 if (web_resources.size() % onepage_num) ++totalpage;
                 final2 = "<li><a class='smoothScroll' href='/page" + to_string(totalpage) + ".html'><font size='6'>返回</font><br/></a></li>\n";                
